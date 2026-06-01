@@ -1,4 +1,5 @@
 import AppKit
+import ServiceManagement
 
 class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
@@ -6,6 +7,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private let vocabularyController = VocabularyController()
     private let vocabularySpeaker = VocabularySpeaker()
     private var pronounceCardsMenuItem: NSMenuItem?
+    private var launchAtLoginMenuItem: NSMenuItem?
     private var isPronunciationEnabled = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -38,6 +40,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         speakItem.state = .off
         pronounceCardsMenuItem = speakItem
         menu.addItem(speakItem)
+
+        menu.addItem(.separator())
+
+        let launchAtLoginItem = NSMenuItem(
+            title: "Launch At Login",
+            action: #selector(toggleLaunchAtLogin),
+            keyEquivalent: ""
+        )
+        launchAtLoginItem.target = self
+        launchAtLoginMenuItem = launchAtLoginItem
+        updateLaunchAtLoginMenuState()
+        menu.addItem(launchAtLoginItem)
 
         menu.addItem(.separator())
 
@@ -79,12 +93,33 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    @objc private func toggleLaunchAtLogin() {
+        do {
+            if isLaunchAtLoginEnabled() {
+                try SMAppService.mainApp.unregister()
+            } else {
+                try SMAppService.mainApp.register()
+            }
+            updateLaunchAtLoginMenuState()
+        } catch {
+            NSSound.beep()
+        }
+    }
+
     private func showNextWord() {
         statusItem.button?.title = vocabularyController.nextRandom()
 
         if isPronunciationEnabled, let entry = vocabularyController.currentEntry {
             vocabularySpeaker.speak(entry: entry)
         }
+    }
+
+    private func isLaunchAtLoginEnabled() -> Bool {
+        SMAppService.mainApp.status == .enabled
+    }
+
+    private func updateLaunchAtLoginMenuState() {
+        launchAtLoginMenuItem?.state = isLaunchAtLoginEnabled() ? .on : .off
     }
 }
 
