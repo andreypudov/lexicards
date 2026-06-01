@@ -6,11 +6,13 @@ class AppSettings {
     private enum Keys {
         static let wordInterval = "wordInterval"
         static let emptyVocabularyText = "emptyVocabularyText"
+        static let defaultLanguageCode = "defaultLanguageCode"
     }
 
     private enum Defaults {
         static let wordInterval: TimeInterval = 8
         static let emptyVocabularyText = "LexiBar: Hello!"
+        static let defaultLanguageCode = "en-US"
     }
 
     var wordInterval: TimeInterval {
@@ -34,6 +36,20 @@ class AppSettings {
         }
         set {
             UserDefaults.standard.set(newValue, forKey: Keys.emptyVocabularyText)
+        }
+    }
+
+    var defaultLanguageCode: String {
+        get {
+            let stored = UserDefaults.standard.string(forKey: Keys.defaultLanguageCode)
+            if let stored, !stored.isEmpty {
+                return stored
+            }
+
+            return Defaults.defaultLanguageCode
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: Keys.defaultLanguageCode)
         }
     }
 }

@@ -4,10 +4,18 @@ import NaturalLanguage
 
 final class VocabularySpeaker {
     private let speechSynthesizer = AVSpeechSynthesizer()
-    private var originalLanguageCode = "en-US"
-    private var translationLanguageCode = "en-US"
-    private var originalVoice = AVSpeechSynthesisVoice(language: "en-US")
-    private var translationVoice = AVSpeechSynthesisVoice(language: "en-US")
+    private let defaultLanguageCode = AppSettings.shared.defaultLanguageCode
+    private var originalLanguageCode: String
+    private var translationLanguageCode: String
+    private var originalVoice: AVSpeechSynthesisVoice?
+    private var translationVoice: AVSpeechSynthesisVoice?
+
+    init() {
+        originalLanguageCode = defaultLanguageCode
+        translationLanguageCode = defaultLanguageCode
+        originalVoice = AVSpeechSynthesisVoice(language: defaultLanguageCode)
+        translationVoice = AVSpeechSynthesisVoice(language: defaultLanguageCode)
+    }
 
     func stop() {
         speechSynthesizer.stopSpeaking(at: .immediate)
@@ -43,7 +51,7 @@ final class VocabularySpeaker {
     private func detectLanguageCode(for text: String) -> String {
         let recognizer = NLLanguageRecognizer()
         recognizer.processString(text)
-        return recognizer.dominantLanguage?.rawValue ?? "en-US"
+        return recognizer.dominantLanguage?.rawValue ?? defaultLanguageCode
     }
 
     private func preferredVoice(for languageCode: String) -> AVSpeechSynthesisVoice? {
@@ -57,7 +65,7 @@ final class VocabularySpeaker {
             .identifier
 
         guard let normalized else {
-            return AVSpeechSynthesisVoice(language: "en-US")
+            return AVSpeechSynthesisVoice(language: defaultLanguageCode)
         }
 
         let fallbackVoice = AVSpeechSynthesisVoice.speechVoices().first {
@@ -67,6 +75,6 @@ final class VocabularySpeaker {
                 .identifier == normalized
         }
 
-        return fallbackVoice ?? AVSpeechSynthesisVoice(language: "en-US")
+        return fallbackVoice ?? AVSpeechSynthesisVoice(language: defaultLanguageCode)
     }
 }
