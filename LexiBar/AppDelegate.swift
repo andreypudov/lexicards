@@ -31,6 +31,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         openItem.target = self
         menu.addItem(openItem)
 
+        let vocabularyPageItem = NSMenuItem(
+            title: "Download Vocabulary",
+            action: #selector(openVocabularyWebpage),
+            keyEquivalent: ""
+        )
+        vocabularyPageItem.target = self
+        menu.addItem(vocabularyPageItem)
+
         let speakItem = NSMenuItem(
             title: "Pronounce Cards",
             action: #selector(togglePronounceCards),
@@ -77,6 +85,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             vocabularySpeaker.configureLanguages(entries: vocabularyController.allEntries)
             showNextWord()
         }
+    }
+
+    @objc private func openVocabularyWebpage() {
+        guard let url = URL(string: AppConstants.vocabularyWebpageURL) else {
+            NSSound.beep()
+            return
+        }
+
+        NSWorkspace.shared.open(url)
     }
 
     @objc private func togglePronounceCards() {

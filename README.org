@@ -19,6 +19,10 @@
 
 *LexiBar* is ideal for language learners who prefer a passive, always‑visible learning tool that blends seamlessly into their daily computing environment.
 
+* Vocabulary
+
+- [[file:Vocabularies/Genki I/01-new-friends.csv][Genki I - 01 New Friends]]
+
 * Loading Vocabulary
 
 *LexiBar* reads vocabulary from a simple CSV file containing two columns:
