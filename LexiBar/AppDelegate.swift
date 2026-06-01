@@ -80,7 +80,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func showNextWord() {
-        statusItem.button?.title = vocabularyController.next()
+        statusItem.button?.title = vocabularyController.nextRandom()
 
         if isPronunciationEnabled, let entry = vocabularyController.currentEntry {
             vocabularySpeaker.speak(entry: entry)
