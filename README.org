@@ -21,7 +21,7 @@
 
 * Vocabulary
 
-- [[file:Vocabularies/Genki I/01-new-friends.csv][Genki I - 01 New Friends]]
+- [[./Vocabularies/Genki I/01-new-friends.csv][Genki I - 01 New Friends]]
 
 * Loading Vocabulary
 
