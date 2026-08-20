@@ -1,12 +1,12 @@
 {
   "images" : [
     {
-      "filename" : "statusbar.png",
+      "filename" : "18.png",
       "idiom" : "mac",
       "scale" : "1x"
     },
     {
-      "filename" : "statusbar@2x.png",
+      "filename" : "36.png",
       "idiom" : "mac",
       "scale" : "2x"
     }
