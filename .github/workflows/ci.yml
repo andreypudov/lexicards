@@ -19,7 +19,7 @@ jobs:
       - name: Check formatting
         run: |
           brew install swiftformat
-          swiftformat --lint LexiCards LexiCardsTests
+          swiftformat LexiCards LexiCardsTests --lint
 
       - name: Run Swift Testing suite
         run: |

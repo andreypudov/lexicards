@@ -83,7 +83,7 @@ and Xcode-compatible indentation rules. From the repository root:
 
 #+begin_src sh
 swiftformat .
-swiftformat --lint .
+swiftformat . --lint
 #+end_src
 
 Run the lint command before opening a pull request. Formatting changes should
@@ -121,7 +121,7 @@ smallest integration behavior that cannot be covered at the service level.
 
 Before submitting a change:
 
-1. Run =swiftformat --lint .=
+1. Run =swiftformat . --lint=
 2. Run =xcodebuild -project LexiCards.xcodeproj -scheme LexiCards test=.
 3. Build the Debug and Release configurations.
 4. Exercise the affected menu or card workflow manually.

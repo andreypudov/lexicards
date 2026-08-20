@@ -105,7 +105,7 @@ Architecture notes, build and test instructions are in [[file:DEVELOPMENT.org][D
 
 #+begin_src sh
 swiftformat .
-swiftformat --lint .
+swiftformat . --lint
 xcodebuild -project LexiCards.xcodeproj -scheme LexiCards test
 xcodebuild -project LexiCards.xcodeproj -scheme LexiCards -configuration Release build
 #+end_src
