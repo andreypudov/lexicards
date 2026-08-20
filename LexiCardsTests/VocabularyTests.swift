@@ -2,6 +2,7 @@ import Foundation
 @testable import LexiCards
 import Testing
 
+@MainActor
 struct VocabularyTests {
     @Test
     func entryBuildsDisplayText() {
