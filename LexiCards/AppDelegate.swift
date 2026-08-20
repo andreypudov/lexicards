@@ -24,7 +24,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         timer = Timer.scheduledTimer(withTimeInterval: AppSettings.shared.wordInterval, repeats: true) { [weak self] _ in
-            self?.showNextWord()
+            Task { @MainActor [weak self] in
+                self?.showNextWord()
+            }
         }
     }
 
