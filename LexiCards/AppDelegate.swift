@@ -18,10 +18,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         configureStatusItem()
         setupMenu()
         vocabularyCardPanel.restorePositionOrMoveToLowerRightCorner()
-        vocabularyCardPanel.orderFrontRegardless()
         if !restoreLastVocabulary() {
             showNextWord()
         }
+        vocabularyCardPanel.orderFrontRegardless()
 
         timer = Timer.scheduledTimer(withTimeInterval: AppSettings.shared.wordInterval, repeats: true) { [weak self] _ in
             Task { @MainActor [weak self] in
@@ -135,43 +135,40 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     @discardableResult
     private func restoreLastVocabulary() -> Bool {
-        guard let bookmarkData = AppSettings.shared.lastVocabularyBookmark else {
+        if let bookmarkData = AppSettings.shared.lastVocabularyBookmark {
+            var isStale = false
+            do {
+                let url = try URL(
+                    resolvingBookmarkData: bookmarkData,
+                    options: [.withSecurityScope],
+                    relativeTo: nil,
+                    bookmarkDataIsStale: &isStale
+                )
+
+                if restoreVocabulary(from: url) {
+                    if isStale {
+                        saveBookmark(for: url)
+                    }
+                    return true
+                }
+            } catch {
+                // Try the stored path below when bookmark resolution fails.
+            }
+        }
+
+        guard
+            let path = AppSettings.shared.lastVocabularyPath,
+            restoreVocabulary(from: URL(fileURLWithPath: path))
+        else {
             return false
         }
 
-        var isStale = false
-        do {
-            let url = try URL(
-                resolvingBookmarkData: bookmarkData,
-                options: [.withSecurityScope],
-                relativeTo: nil,
-                bookmarkDataIsStale: &isStale
-            )
-
-            guard url.startAccessingSecurityScopedResource() else {
-                AppSettings.shared.lastVocabularyBookmark = nil
-                return false
-            }
-
-            guard vocabularyController.load(from: url) else {
-                url.stopAccessingSecurityScopedResource()
-                AppSettings.shared.lastVocabularyBookmark = nil
-                return false
-            }
-
-            securityScopedVocabularyURL = url
-            if isStale {
-                saveBookmark(for: url)
-            }
-            configureLoadedVocabulary()
-            return true
-        } catch {
-            AppSettings.shared.lastVocabularyBookmark = nil
-            return false
-        }
+        return true
     }
 
     private func saveBookmark(for url: URL) {
+        AppSettings.shared.lastVocabularyPath = url.path
+
         do {
             let bookmarkData = try url.bookmarkData(
                 options: [.withSecurityScope, .securityScopeAllowOnlyReadAccess]
@@ -182,9 +179,26 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    private func configureLoadedVocabulary() {
+    private func restoreVocabulary(from url: URL) -> Bool {
+        let startedSecurityScope = url.startAccessingSecurityScopedResource()
+
+        guard vocabularyController.load(from: url) else {
+            if startedSecurityScope {
+                url.stopAccessingSecurityScopedResource()
+            }
+            return false
+        }
+
+        if startedSecurityScope {
+            securityScopedVocabularyURL = url
+        }
+        configureLoadedVocabulary(animated: false)
+        return true
+    }
+
+    private func configureLoadedVocabulary(animated: Bool = true) {
         vocabularySpeaker.configureLanguages(entries: vocabularyController.allEntries)
-        showNextWord()
+        showNextWord(animated: animated)
     }
 
     @objc private func openVocabularyWebpage() {
@@ -234,9 +248,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    private func showNextWord() {
+    private func showNextWord(animated: Bool = true) {
         _ = vocabularyController.nextRandom()
-        vocabularyCardPanel.update(entry: vocabularyController.currentEntry)
+        vocabularyCardPanel.update(
+            entry: vocabularyController.currentEntry,
+            animated: animated
+        )
 
         if isPronunciationEnabled, let entry = vocabularyController.currentEntry {
             vocabularySpeaker.speak(entry: entry)

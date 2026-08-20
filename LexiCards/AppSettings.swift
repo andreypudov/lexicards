@@ -8,8 +8,11 @@ class AppSettings {
         static let emptyVocabularyText = "emptyVocabularyText"
         static let defaultLanguageCode = "defaultLanguageCode"
         static let lastVocabularyBookmark = "lastVocabularyBookmark"
+        static let lastVocabularyPath = "lastVocabularyPath"
         static let cardWindowOriginX = "cardWindowOriginX"
         static let cardWindowOriginY = "cardWindowOriginY"
+        static let cardWindowWidth = "cardWindowWidth"
+        static let cardWindowHeight = "cardWindowHeight"
     }
 
     private enum Defaults {
@@ -65,6 +68,15 @@ class AppSettings {
         }
     }
 
+    var lastVocabularyPath: String? {
+        get {
+            UserDefaults.standard.string(forKey: Keys.lastVocabularyPath)
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: Keys.lastVocabularyPath)
+        }
+    }
+
     var cardWindowOrigin: CGPoint? {
         get {
             guard
@@ -79,6 +91,23 @@ class AppSettings {
         set {
             UserDefaults.standard.set(newValue?.x, forKey: Keys.cardWindowOriginX)
             UserDefaults.standard.set(newValue?.y, forKey: Keys.cardWindowOriginY)
+        }
+    }
+
+    var cardWindowSize: CGSize? {
+        get {
+            guard
+                let width = UserDefaults.standard.object(forKey: Keys.cardWindowWidth) as? NSNumber,
+                let height = UserDefaults.standard.object(forKey: Keys.cardWindowHeight) as? NSNumber
+            else {
+                return nil
+            }
+
+            return CGSize(width: width.doubleValue, height: height.doubleValue)
+        }
+        set {
+            UserDefaults.standard.set(newValue?.width, forKey: Keys.cardWindowWidth)
+            UserDefaults.standard.set(newValue?.height, forKey: Keys.cardWindowHeight)
         }
     }
 }
