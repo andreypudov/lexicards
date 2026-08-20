@@ -1,34 +1,76 @@
-#+TITLE: LexiCards - macOS vocabulary card app
-#+AUTHOR: Andrey Pudov
-#+DATE: <2026-05-19 Tue>
+#+TITLE: LexiCards
+#+SUBTITLE: Ambient vocabulary learning for macOS
 #+OPTIONS: toc:nil
 
-* Overview
+[[./Asserts/Icon.png]]
 
-*LexiCards* is a lightweight, modern macOS application designed to support continuous vocabulary learning through subtle, high‑frequency exposure. It lives in the macOS menu bar and displays a small floating card with a rotating sequence of words and their translations without interrupting your workflow.
-
-*LexiCards* is intentionally minimalistic: no regular windows, no clutter, no distractions — just clean, ambient reinforcement of the vocabulary you want to learn.
+LexiCards keeps vocabulary visible while you work. It lives in the menu bar and displays a small floating card with a rotating sequence of words and their translations, without opening a regular application window or interrupting your workflow.
 
 * Features
 
-- Native macOS menu‑bar integration
-- Automatic cycling of vocabulary pairs
-- Floating word card in the lower-right corner
-- Card visible across Spaces and full-screen apps
-- Card visibility toggle in the menu bar
-- Support for user‑provided vocabulary files
-- Fast, lightweight Swift implementation
+** Menu bar application
 
-*LexiCards* is ideal for language learners who prefer a passive, always‑visible learning tool that blends seamlessly into their daily computing environment.
+LexiCards runs as a menu bar application with no Dock icon. The status menu carries vocabulary loading, card visibility, pronunciation, launch-at-login, and quit controls.
 
-* Vocabulary
+** Ambient floating card
 
-- [[./Vocabularies/Genki I/01-new-friends.csv][Genki I - 01 New Friends]]
-- [[./Vocabularies/Genki I/02-shopping.csv][Genki I - 02 Shopping]]
+The card stays above normal windows and can join all Spaces and full-screen apps. It starts near the lower-right corner, can be dragged anywhere, and remembers its position and size between launches.
 
-* Loading Vocabulary
+** Automatic cycling
 
-*LexiCards* reads vocabulary from a simple CSV file containing two columns:
+Loaded entries rotate at a regular interval, eight seconds by default. The next entry is selected randomly so repeated exposure does not always follow the order of the source file.
+
+** Optional pronunciation
+
+When pronunciation is enabled, each displayed entry is spoken using the language configured by the application. Pronunciation can be toggled independently from card visibility.
+
+* Requirements
+
+- macOS *13.5* or later
+- Xcode *16* or later to build from source
+
+* Installation
+
+** Homebrew (recommended)
+
+Install the latest release with Homebrew:
+
+#+begin_src sh
+brew tap andreypudov/lexicards
+brew trust andreypudov/lexicards
+brew install --cask lexicards
+#+end_src
+
+Upgrade later with =brew update && brew upgrade --cask lexicards=.
+
+** Build from source
+
+Clone the repository, open the Xcode project, and run the *LexiCards* scheme:
+
+#+begin_src sh
+git clone https://github.com/AndreyPudov/lexicards.git
+cd lexicards
+xcodebuild -project LexiCards.xcodeproj -scheme LexiCards -configuration Release build
+#+end_src
+
+The built application is produced in Xcode's derived-data build directory. For development, open =LexiCards.xcodeproj= in Xcode and press Run.
+
+* First launch
+
+1. Launch *LexiCards*. Its control appears in the menu bar and a floating card appears near the lower-right corner.
+2. Choose *Open Vocabulary* from the menu bar item and select a CSV file.
+3. Use *Show Card* to hide or reveal the card without stopping the vocabulary timer.
+4. Enable *Pronounce Cards* when spoken reinforcement is useful.
+
+The selected file and card placement are restored automatically on subsequent launches.
+
+* Using LexiCards
+
+*Menu bar* — open a vocabulary file, download vocabulary, show or hide the card, enable pronunciation, enable launch at login, or quit.
+
+*Card* — drag the floating card to place it. Its position and size are saved automatically. The card remains available across Spaces and full-screen applications.
+
+*Vocabulary* — use a UTF-8 CSV file with two columns. Omit the header row; blank or malformed rows are ignored:
 
 #+begin_example
 Original,Translation
@@ -38,34 +80,36 @@ Original,Translation
 空,sky
 #+end_example
 
-** Format requirements:
+The repository includes these example vocabularies:
 
-- Two columns: Original and Translation
-- Comma‑separated (,), UTF‑8 encoded
-- Header row is optional
-- Each row represents one vocabulary pair
+- [[./Vocabularies/Genki I/01-new-friends.csv][Genki I - 01 New Friends]]
+- [[./Vocabularies/Genki I/02-shopping.csv][Genki I - 02 Shopping]]
 
-Once loaded, *LexiCards* cycles through the entries at a regular interval, displaying each pair in the floating card. Use *Show Card* in the menu bar to hide or show it.
+* File format
 
-* Installation & Usage
+- Two comma-separated columns: original and translation
+- UTF-8 encoded text
+- Do not include a header row; it is currently treated as a vocabulary pair
+- One vocabulary pair per row
+- Commas inside fields are not currently quoted or escaped
 
-1. Launch *LexiCards* on macOS (macOS 12+ recommended).
-2. The *LexiCards* control will appear in the menu bar and a card will appear in the lower-right corner.
-3. Load your CSV vocabulary file through the app’s menu.
-4. Words will begin cycling automatically.
+* Limitations
 
-*LexiCards* runs entirely from the menu bar and can be quit at any time from its dropdown menu.
+- CSV parsing currently treats commas as column separators and does not support quoted fields.
+- Vocabulary cannot yet be edited inside the application.
+- The current vocabulary library is selected one file at a time.
 
 * Development
 
-The project uses Swift 6.0 and SwiftFormat with Xcode-compatible indentation. Install
-[[https://github.com/nicklockwood/SwiftFormat][SwiftFormat]] and run these commands from the repository root:
+Architecture notes, build and test instructions are in [[file:DEVELOPMENT.org][DEVELOPMENT.org]].
 
 #+begin_src sh
 swiftformat .
 swiftformat --lint .
+xcodebuild -project LexiCards.xcodeproj -scheme LexiCards test
+xcodebuild -project LexiCards.xcodeproj -scheme LexiCards -configuration Release build
 #+end_src
 
 * License
 
-*LexiCards* is distributed under the Apache License 2.0.
+LexiCards is distributed under the Apache License 2.0. See [[file:LICENSE][LICENSE]].

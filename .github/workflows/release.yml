@@ -22,6 +22,17 @@ jobs:
       - name: Show toolchain
         run: xcodebuild -version && xcrun --show-sdk-version
 
+      - name: Run Swift Testing suite
+        run: |
+          xcodebuild \
+            -project LexiCards.xcodeproj \
+            -scheme LexiCards \
+            -configuration Debug \
+            -sdk macosx \
+            -derivedDataPath build/TestDerivedData \
+            CODE_SIGNING_ALLOWED=NO \
+            test
+
       - name: Build and package
         run: |
           rm -rf build dist

@@ -19,7 +19,18 @@ jobs:
       - name: Check formatting
         run: |
           brew install swiftformat
-          swiftformat --lint LexiCards
+          swiftformat --lint LexiCards LexiCardsTests
+
+      - name: Run Swift Testing suite
+        run: |
+          xcodebuild \
+            -project LexiCards.xcodeproj \
+            -scheme LexiCards \
+            -configuration Debug \
+            -sdk macosx \
+            -derivedDataPath build/DerivedData \
+            CODE_SIGNING_ALLOWED=NO \
+            test
 
       - name: Build Debug configuration
         run: |

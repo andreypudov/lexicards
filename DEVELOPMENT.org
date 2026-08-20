@@ -1,0 +1,132 @@
+#+TITLE: LexiCards Development
+#+SUBTITLE: Architecture, build, and test notes
+#+OPTIONS: toc:nil
+
+* Requirements
+
+- macOS *13.5* or later
+- Xcode *16* or later
+- Swift *6.0*
+- [[https://github.com/nicklockwood/SwiftFormat][SwiftFormat]] for formatting and linting
+
+The project is an AppKit and SwiftUI menu bar application. It is configured as
+a UI-element application, so it does not appear in the Dock or present a normal
+application window.
+
+* Architecture
+
+** Application
+
+=LexiCardsApp.swift= starts the SwiftUI application, while =AppDelegate.swift=
+and =AppCoordinator.swift= own the menu bar lifecycle. =AppCoordinator= wires
+the menu actions to vocabulary loading, card visibility, pronunciation, and
+launch-at-login behavior.
+
+** Menu bar
+
+=MenuBarController= creates the =NSStatusItem= and its menu. It exposes closures
+for actions so the menu remains separate from application behavior.
+
+** Vocabulary
+
+=VocabularyController= owns the loaded entries and current index.
+=VocabularyLoader= reads UTF-8 text and converts each valid CSV row into a
+=VocabularyEntry=. =VocabularyFileAccess= handles the user-selected URL,
+security-scoped access, and restoration through a bookmark stored in
+=UserDefaults=.
+
+** Card
+
+=VocabularyCardPanel= is a borderless =NSPanel= hosting the SwiftUI
+=VocabularyCardView=. The panel is floating, joins all Spaces, supports
+full-screen applications, and persists its position and size through
+=AppSettings=.
+
+** Speech and settings
+
+=VocabularySpeaker= provides pronunciation through the system speech APIs.
+=AppSettings= is the small persistence boundary for preferences, the last
+vocabulary bookmark, and card geometry. Keep new persisted values there rather
+than reaching into =UserDefaults= from feature code.
+
+* Repository layout
+
+#+begin_example
+LexiCards/
+  Application/       Application lifecycle and coordination
+  Features/Card/     Floating card panel and SwiftUI view
+  Features/MenuBar/  Status item and menu actions
+  Features/Vocabulary/
+    Models/          Vocabulary data types
+    Services/        Loading, persistence, selection, and speech
+  Infrastructure/    Shared constants and settings
+Vocabularies/        Example CSV files
+Asserts/              Source artwork and asset files
+#+end_example
+
+* Build
+
+Open =LexiCards.xcodeproj= in Xcode and run the shared *LexiCards* scheme.
+The command-line equivalents are:
+
+#+begin_src sh
+xcodebuild -project LexiCards.xcodeproj -scheme LexiCards -configuration Debug build
+xcodebuild -project LexiCards.xcodeproj -scheme LexiCards -configuration Release build
+#+end_src
+
+The release build can be archived from Xcode using *Product -> Archive*.
+
+* Formatting
+
+The repository uses SwiftFormat with Swift 6 syntax, four-space indentation,
+and Xcode-compatible indentation rules. From the repository root:
+
+#+begin_src sh
+swiftformat .
+swiftformat --lint .
+#+end_src
+
+Run the lint command before opening a pull request. Formatting changes should
+stay separate from behavioral changes when practical.
+
+* Testing
+
+The project uses the Swift Testing framework. The shared Xcode scheme includes
+the =LexiCardsTests= unit-test target. Run the suite from Xcode or with:
+
+#+begin_src sh
+xcodebuild -project LexiCards.xcodeproj -scheme LexiCards test
+#+end_src
+
+The current tests cover vocabulary display text, CSV loading, malformed and
+unreadable files, sequential and random selection, and empty-state behavior.
+Use a clean build and a manual smoke test alongside the automated suite:
+
+#+begin_src sh
+xcodebuild -project LexiCards.xcodeproj -scheme LexiCards clean build
+#+end_src
+
+The smoke test should verify that the app starts without a Dock icon, opens a
+UTF-8 CSV file, rotates entries, toggles the card, speaks an entry when enabled,
+restores the selected file after relaunch, and remembers the card position.
+
+* Adding tests
+
+When introducing a test target, prioritize the platform-independent vocabulary
+behavior first: CSV loading, empty and malformed rows, random selection, and
+the default settings values. Keep AppKit panel and menu tests focused on the
+smallest integration behavior that cannot be covered at the service level.
+
+* Pull requests
+
+Before submitting a change:
+
+1. Run =swiftformat --lint .=
+2. Run =xcodebuild -project LexiCards.xcodeproj -scheme LexiCards test=.
+3. Build the Debug and Release configurations.
+4. Exercise the affected menu or card workflow manually.
+5. Update [[file:README.org][README.org]] when user-visible behavior or file format changes.
+
+* License
+
+LexiCards is distributed under the Apache License 2.0. See [[file:LICENSE][LICENSE]].
