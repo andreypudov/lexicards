@@ -6,4 +6,3 @@ struct VocabularyEntry {
         "\(original) — \(translation)"
     }
 }
-

@@ -22,4 +22,3 @@ enum VocabularyLoader {
         return VocabularyEntry(original: original, translation: translation)
     }
 }
-

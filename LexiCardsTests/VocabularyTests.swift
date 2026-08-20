@@ -1,5 +1,5 @@
-@testable import LexiCards
 import Foundation
+@testable import LexiCards
 import Testing
 
 struct VocabularyTests {
@@ -12,12 +12,14 @@ struct VocabularyTests {
 
     @Test
     func loaderReadsValidRowsAndSkipsBlankOrMalformedRows() throws {
-        let url = try makeTemporaryVocabularyFile(contents: """
-    猫,cat
+        let url = try makeTemporaryVocabularyFile(
+            contents: """
+            猫,cat
 
-    malformed
-    犬, dog
-    """)
+            malformed
+            犬, dog
+            """
+        )
         defer { try? FileManager.default.removeItem(at: url) }
 
         let entries = VocabularyLoader.load(from: url)
