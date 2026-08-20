@@ -122,10 +122,59 @@ smallest integration behavior that cannot be covered at the service level.
 Before submitting a change:
 
 1. Run =swiftformat . --lint=
-2. Run =xcodebuild -project LexiCards.xcodeproj -scheme LexiCards test=.
-3. Build the Debug and Release configurations.
-4. Exercise the affected menu or card workflow manually.
-5. Update [[file:README.org][README.org]] when user-visible behavior or file format changes.
+2. Run =xcodebuild -project LexiCards.xcodeproj -scheme LexiCards test=
+3. Build Debug and Release configurations locally (see Pre-push verification below)
+4. Exercise the affected menu or card workflow manually
+5. Update [[file:README.org][README.org]] when user-visible behavior or file format changes
+
+** Pre-push verification
+
+To catch compiler errors and optimizer crashes before they reach CI, run the
+full gate locally. This is especially important for Release builds, which can
+surface Swift optimizer crashes not present in Debug.
+
+From the repository root:
+
+#+begin_src sh
+# Check formatting
+swiftformat LexiCards LexiCardsTests --lint
+
+# Run tests (Debug configuration)
+xcodebuild \
+  -project LexiCards.xcodeproj \
+  -scheme LexiCards \
+  -configuration Debug \
+  -sdk macosx \
+  -destination 'platform=macOS' \
+  -derivedDataPath build/DerivedData \
+  CODE_SIGNING_ALLOWED=NO \
+  test
+
+# Build Debug
+xcodebuild \
+  -project LexiCards.xcodeproj \
+  -scheme LexiCards \
+  -configuration Debug \
+  -sdk macosx \
+  -destination 'platform=macOS' \
+  -derivedDataPath build/DerivedData \
+  CODE_SIGNING_ALLOWED=NO \
+  build
+
+# Build Release (catches optimizer crashes not visible in Debug)
+xcodebuild \
+  -project LexiCards.xcodeproj \
+  -scheme LexiCards \
+  -configuration Release \
+  -sdk macosx \
+  -destination 'platform=macOS' \
+  -derivedDataPath build/DerivedData \
+  CODE_SIGNING_ALLOWED=NO \
+  build
+#+end_src
+
+All commands must pass before pushing. See [[file:AGENT.md][AGENT.md]] for integration with CI
+workflows and notes on specific optimizer issues.
 
 * License
 
