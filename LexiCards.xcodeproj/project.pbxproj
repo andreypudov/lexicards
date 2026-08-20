@@ -12,7 +12,7 @@
 /* End PBXFileReference section */
 
 /* Begin PBXContainerItemProxy section */
-		2C86CE3B2FBC917D00012698 /* PBXContainerItemProxy */ = {
+		2C86CE4A2FBC917D00012698 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 2C86CE2A2FBC917D00012698 /* Project object */;
 			proxyType = 1;
@@ -106,7 +106,7 @@
 			buildRules = (
 			);
 			dependencies = (
-				2C86CE3C2FBC917D00012698 /* PBXTargetDependency */,
+				2C86CE4B2FBC917D00012698 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				2C86CE362FBC917D00012698 /* LexiCardsTests */,
@@ -121,10 +121,10 @@
 /* End PBXNativeTarget section */
 
 /* Begin PBXTargetDependency section */
-		2C86CE3C2FBC917D00012698 /* PBXTargetDependency */ = {
+		2C86CE4B2FBC917D00012698 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 2C86CE312FBC917D00012698 /* LexiCards */;
-			targetProxy = 2C86CE3B2FBC917D00012698 /* PBXContainerItemProxy */;
+			targetProxy = 2C86CE4A2FBC917D00012698 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 

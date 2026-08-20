@@ -29,6 +29,7 @@ jobs:
             -scheme LexiCards \
             -configuration Debug \
             -sdk macosx \
+            -destination 'platform=macOS' \
             -derivedDataPath build/TestDerivedData \
             CODE_SIGNING_ALLOWED=NO \
             test
@@ -42,6 +43,7 @@ jobs:
             -scheme LexiCards \
             -configuration Release \
             -sdk macosx \
+            -destination 'platform=macOS' \
             -derivedDataPath build/DerivedData \
             CODE_SIGNING_ALLOWED=NO \
             build
