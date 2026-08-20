@@ -31,7 +31,7 @@ final class MovableHostingView<Content: View>: NSHostingView<Content> {
     }
 }
 
-final class VocabularyCardPanel: NSPanel {
+final class VocabularyCardPanel: NSPanel, NSWindowDelegate {
     private let hostingView: MovableHostingView<VocabularyCardView>
 
     init() {
@@ -56,6 +56,7 @@ final class VocabularyCardPanel: NSPanel {
         hidesOnDeactivate = false
         collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
         isMovableByWindowBackground = true
+        delegate = self
     }
 
     func update(entry: VocabularyEntry?) {
@@ -65,7 +66,16 @@ final class VocabularyCardPanel: NSPanel {
         )
     }
 
-    func moveToLowerRightCorner() {
+    func restorePositionOrMoveToLowerRightCorner() {
+        if let origin = AppSettings.shared.cardWindowOrigin, isVisible(on: origin) {
+            setFrameOrigin(origin)
+            return
+        }
+
+        moveToLowerRightCorner()
+    }
+
+    private func moveToLowerRightCorner() {
         guard let screen = NSScreen.main ?? NSScreen.screens.first else {
             return
         }
@@ -76,6 +86,15 @@ final class VocabularyCardPanel: NSPanel {
             y: visibleFrame.minY + 18
         )
         setFrameOrigin(origin)
+    }
+
+    private func isVisible(on origin: CGPoint) -> Bool {
+        let frame = NSRect(origin: origin, size: frame.size)
+        return NSScreen.screens.contains { $0.visibleFrame.intersects(frame) }
+    }
+
+    func windowDidMove(_ notification: Notification) {
+        AppSettings.shared.cardWindowOrigin = frame.origin
     }
 
     override var canBecomeKey: Bool {

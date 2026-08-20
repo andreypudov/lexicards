@@ -14,9 +14,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var securityScopedVocabularyURL: URL?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+        configureStatusItem()
         setupMenu()
-        vocabularyCardPanel.moveToLowerRightCorner()
+        vocabularyCardPanel.restorePositionOrMoveToLowerRightCorner()
         vocabularyCardPanel.orderFrontRegardless()
         if !restoreLastVocabulary() {
             showNextWord()
@@ -25,6 +26,20 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         timer = Timer.scheduledTimer(withTimeInterval: AppSettings.shared.wordInterval, repeats: true) { [weak self] _ in
             self?.showNextWord()
         }
+    }
+
+    private func configureStatusItem() {
+        guard let button = statusItem.button else {
+            return
+        }
+
+        let image = NSImage(named: "StatusBarIcon")
+        image?.isTemplate = true
+        button.image = image
+        button.title = ""
+        button.imagePosition = .imageOnly
+        button.imageScaling = .scaleProportionallyDown
+        button.toolTip = "LexiCards"
     }
 
     private func setupMenu() {
@@ -194,7 +209,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         showCardMenuItem?.state = shouldShow ? .on : .off
 
         if shouldShow {
-            vocabularyCardPanel.moveToLowerRightCorner()
             vocabularyCardPanel.orderFrontRegardless()
         } else {
             vocabularyCardPanel.orderOut(nil)
@@ -217,19 +231,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private func showNextWord() {
         _ = vocabularyController.nextRandom()
         vocabularyCardPanel.update(entry: vocabularyController.currentEntry)
-        setStatusTitle("LexiCards")
 
         if isPronunciationEnabled, let entry = vocabularyController.currentEntry {
             vocabularySpeaker.speak(entry: entry)
         }
-    }
-
-    private func setStatusTitle(_ title: String) {
-        guard let button = statusItem.button else {
-            return
-        }
-
-        button.title = title
     }
 
     private func isLaunchAtLoginEnabled() -> Bool {

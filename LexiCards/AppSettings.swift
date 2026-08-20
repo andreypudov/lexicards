@@ -8,6 +8,8 @@ class AppSettings {
         static let emptyVocabularyText = "emptyVocabularyText"
         static let defaultLanguageCode = "defaultLanguageCode"
         static let lastVocabularyBookmark = "lastVocabularyBookmark"
+        static let cardWindowOriginX = "cardWindowOriginX"
+        static let cardWindowOriginY = "cardWindowOriginY"
     }
 
     private enum Defaults {
@@ -60,6 +62,23 @@ class AppSettings {
         }
         set {
             UserDefaults.standard.set(newValue, forKey: Keys.lastVocabularyBookmark)
+        }
+    }
+
+    var cardWindowOrigin: CGPoint? {
+        get {
+            guard
+                let x = UserDefaults.standard.object(forKey: Keys.cardWindowOriginX) as? NSNumber,
+                let y = UserDefaults.standard.object(forKey: Keys.cardWindowOriginY) as? NSNumber
+            else {
+                return nil
+            }
+
+            return CGPoint(x: x.doubleValue, y: y.doubleValue)
+        }
+        set {
+            UserDefaults.standard.set(newValue?.x, forKey: Keys.cardWindowOriginX)
+            UserDefaults.standard.set(newValue?.y, forKey: Keys.cardWindowOriginY)
         }
     }
 }
