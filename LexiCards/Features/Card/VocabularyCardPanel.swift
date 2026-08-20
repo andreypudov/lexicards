@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 
-final class MovableHostingView<Content: View>: NSHostingView<Content> {
+final class MovableHostingView: NSHostingView<VocabularyCardView> {
     private var dragStart: NSPoint?
     private var windowStartOrigin: NSPoint?
 
@@ -46,7 +46,7 @@ final class MovableHostingView<Content: View>: NSHostingView<Content> {
 }
 
 final class VocabularyCardPanel: NSPanel, NSWindowDelegate {
-    private var hostingView: MovableHostingView<VocabularyCardView>
+    private var hostingView: MovableHostingView
 
     init() {
         let savedSize = AppSettings.shared.cardWindowSize ?? CGSize(width: 320, height: 112)
