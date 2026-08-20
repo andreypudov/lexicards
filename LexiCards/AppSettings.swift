@@ -7,6 +7,7 @@ class AppSettings {
         static let wordInterval = "wordInterval"
         static let emptyVocabularyText = "emptyVocabularyText"
         static let defaultLanguageCode = "defaultLanguageCode"
+        static let lastVocabularyBookmark = "lastVocabularyBookmark"
     }
 
     private enum Defaults {
@@ -50,6 +51,15 @@ class AppSettings {
         }
         set {
             UserDefaults.standard.set(newValue, forKey: Keys.defaultLanguageCode)
+        }
+    }
+
+    var lastVocabularyBookmark: Data? {
+        get {
+            UserDefaults.standard.data(forKey: Keys.lastVocabularyBookmark)
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: Keys.lastVocabularyBookmark)
         }
     }
 }

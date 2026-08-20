@@ -11,13 +11,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var showCardMenuItem: NSMenuItem?
     private var launchAtLoginMenuItem: NSMenuItem?
     private var isPronunciationEnabled = false
+    private var securityScopedVocabularyURL: URL?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         setupMenu()
         vocabularyCardPanel.moveToLowerRightCorner()
         vocabularyCardPanel.orderFrontRegardless()
-        showNextWord()
+        if !restoreLastVocabulary() {
+            showNextWord()
+        }
 
         timer = Timer.scheduledTimer(withTimeInterval: AppSettings.shared.wordInterval, repeats: true) { [weak self] _ in
             self?.showNextWord()
@@ -95,10 +98,72 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         panel.canChooseFiles = true
 
         if panel.runModal() == .OK, let url = panel.url {
-            vocabularyController.load(from: url)
-            vocabularySpeaker.configureLanguages(entries: vocabularyController.allEntries)
-            showNextWord()
+            guard url.startAccessingSecurityScopedResource() else {
+                NSSound.beep()
+                return
+            }
+
+            guard vocabularyController.load(from: url) else {
+                url.stopAccessingSecurityScopedResource()
+                NSSound.beep()
+                return
+            }
+
+            securityScopedVocabularyURL?.stopAccessingSecurityScopedResource()
+            securityScopedVocabularyURL = url
+            saveBookmark(for: url)
+            configureLoadedVocabulary()
         }
+    }
+
+    @discardableResult
+    private func restoreLastVocabulary() -> Bool {
+        guard let bookmarkData = AppSettings.shared.lastVocabularyBookmark else {
+            return false
+        }
+
+        var isStale = false
+        do {
+            let url = try URL(
+                resolvingBookmarkData: bookmarkData,
+                options: [.withSecurityScope],
+                relativeTo: nil,
+                bookmarkDataIsStale: &isStale
+            )
+
+            guard url.startAccessingSecurityScopedResource() else {
+                return false
+            }
+
+            guard vocabularyController.load(from: url) else {
+                url.stopAccessingSecurityScopedResource()
+                return false
+            }
+
+            securityScopedVocabularyURL = url
+            if isStale {
+                saveBookmark(for: url)
+            }
+            configureLoadedVocabulary()
+            return true
+        } catch {
+            AppSettings.shared.lastVocabularyBookmark = nil
+            return false
+        }
+    }
+
+    private func saveBookmark(for url: URL) {
+        do {
+            let bookmarkData = try url.bookmarkData(options: [.withSecurityScope])
+            AppSettings.shared.lastVocabularyBookmark = bookmarkData
+        } catch {
+            NSSound.beep()
+        }
+    }
+
+    private func configureLoadedVocabulary() {
+        vocabularySpeaker.configureLanguages(entries: vocabularyController.allEntries)
+        showNextWord()
     }
 
     @objc private func openVocabularyWebpage() {
@@ -173,5 +238,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func updateLaunchAtLoginMenuState() {
         launchAtLoginMenuItem?.state = isLaunchAtLoginEnabled() ? .on : .off
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        securityScopedVocabularyURL?.stopAccessingSecurityScopedResource()
     }
 }

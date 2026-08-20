@@ -55,6 +55,16 @@ Once loaded, *LexiCards* cycles through the entries at a regular interval, displ
 
 *LexiCards* runs entirely from the menu bar and can be quit at any time from its dropdown menu.
 
+* Development
+
+The project uses Swift 6.0 and SwiftFormat with Xcode-compatible indentation. Install
+[[https://github.com/nicklockwood/SwiftFormat][SwiftFormat]] and run these commands from the repository root:
+
+#+begin_src sh
+swiftformat .
+swiftformat --lint .
+#+end_src
+
 * License
 
 *LexiCards* is distributed under the Apache License 2.0.

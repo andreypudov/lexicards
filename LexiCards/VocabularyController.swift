@@ -36,10 +36,12 @@ class VocabularyController {
         return entries[index].displayText
     }
 
-    func load(from url: URL) {
+    @discardableResult
+    func load(from url: URL) -> Bool {
         let loaded = VocabularyLoader.load(from: url)
-        guard !loaded.isEmpty else { return }
+        guard !loaded.isEmpty else { return false }
         entries = loaded
         index = -1
+        return true
     }
 }
