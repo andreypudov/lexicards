@@ -4,11 +4,6 @@ struct VocabularyCardView: View {
     let entry: VocabularyEntry?
     let emptyText: String
 
-    init(entry: VocabularyEntry?, emptyText: String) {
-        self.entry = entry
-        self.emptyText = emptyText
-    }
-
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             content

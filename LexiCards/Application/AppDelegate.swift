@@ -3,11 +3,11 @@ import AppKit
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private let coordinator = AppCoordinator()
 
-    func applicationDidFinishLaunching(_ notification: Notification) {
+    func applicationDidFinishLaunching(_: Notification) {
         coordinator.start()
     }
 
-    func applicationWillTerminate(_ notification: Notification) {
+    func applicationWillTerminate(_: Notification) {
         coordinator.stop()
     }
 }

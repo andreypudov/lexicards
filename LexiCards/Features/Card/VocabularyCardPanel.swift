@@ -39,7 +39,7 @@ final class MovableHostingView<Content: View>: NSHostingView<Content> {
         )
     }
 
-    override func mouseUp(with event: NSEvent) {
+    override func mouseUp(with _: NSEvent) {
         dragStart = nil
         windowStartOrigin = nil
     }
@@ -111,11 +111,11 @@ final class VocabularyCardPanel: NSPanel, NSWindowDelegate {
         return NSScreen.screens.contains { $0.visibleFrame.intersects(frame) }
     }
 
-    func windowDidMove(_ notification: Notification) {
+    func windowDidMove(_: Notification) {
         AppSettings.shared.cardWindowOrigin = frame.origin
     }
 
-    func windowDidResize(_ notification: Notification) {
+    func windowDidResize(_: Notification) {
         AppSettings.shared.cardWindowSize = frame.size
     }
 
