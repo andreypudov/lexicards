@@ -59,8 +59,10 @@ final class AppCoordinator {
         timer = Timer.scheduledTimer(
             withTimeInterval: AppSettings.shared.wordInterval,
             repeats: true
-        ) { @MainActor [weak self] _ in
-            self?.showNextWord()
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.showNextWord()
+            }
         }
     }
 
