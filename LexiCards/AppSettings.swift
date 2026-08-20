@@ -11,7 +11,7 @@ class AppSettings {
 
     private enum Defaults {
         static let wordInterval: TimeInterval = 8
-        static let emptyVocabularyText = "LexiBar: Hello!"
+        static let emptyVocabularyText = "LexiCards: Hello!"
         static let defaultLanguageCode = "en-US"
     }
 

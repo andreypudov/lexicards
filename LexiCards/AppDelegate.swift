@@ -6,13 +6,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var timer: Timer?
     private let vocabularyController = VocabularyController()
     private let vocabularySpeaker = VocabularySpeaker()
+    private let vocabularyCardPanel = VocabularyCardPanel()
     private var pronounceCardsMenuItem: NSMenuItem?
+    private var showCardMenuItem: NSMenuItem?
     private var launchAtLoginMenuItem: NSMenuItem?
     private var isPronunciationEnabled = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         setupMenu()
+        vocabularyCardPanel.moveToLowerRightCorner()
+        vocabularyCardPanel.orderFrontRegardless()
         showNextWord()
 
         timer = Timer.scheduledTimer(withTimeInterval: AppSettings.shared.wordInterval, repeats: true) { [weak self] _ in
@@ -38,6 +42,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         )
         vocabularyPageItem.target = self
         menu.addItem(vocabularyPageItem)
+
+        let showCardItem = NSMenuItem(
+            title: "Show Card",
+            action: #selector(toggleCard),
+            keyEquivalent: "c"
+        )
+        showCardItem.target = self
+        showCardItem.state = .on
+        showCardMenuItem = showCardItem
+        menu.addItem(showCardItem)
 
         let speakItem = NSMenuItem(
             title: "Pronounce Cards",
@@ -110,6 +124,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    @objc private func toggleCard() {
+        let shouldShow = vocabularyCardPanel.isVisible == false
+        showCardMenuItem?.state = shouldShow ? .on : .off
+
+        if shouldShow {
+            vocabularyCardPanel.moveToLowerRightCorner()
+            vocabularyCardPanel.orderFrontRegardless()
+        } else {
+            vocabularyCardPanel.orderOut(nil)
+        }
+    }
+
     @objc private func toggleLaunchAtLogin() {
         do {
             if isLaunchAtLoginEnabled() {
@@ -124,11 +150,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func showNextWord() {
-        statusItem.button?.title = vocabularyController.nextRandom()
+        _ = vocabularyController.nextRandom()
+        vocabularyCardPanel.update(entry: vocabularyController.currentEntry)
+        setStatusTitle("LexiCards")
 
         if isPronunciationEnabled, let entry = vocabularyController.currentEntry {
             vocabularySpeaker.speak(entry: entry)
         }
+    }
+
+    private func setStatusTitle(_ title: String) {
+        guard let button = statusItem.button else {
+            return
+        }
+
+        button.title = title
     }
 
     private func isLaunchAtLoginEnabled() -> Bool {
@@ -139,4 +175,3 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         launchAtLoginMenuItem?.state = isLaunchAtLoginEnabled() ? .on : .off
     }
 }
-

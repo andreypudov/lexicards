@@ -1,7 +1,7 @@
 import SwiftUI
 
 @main
-struct LexiBarApp: App {
+struct LexiCardsApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
     var body: some Scene {

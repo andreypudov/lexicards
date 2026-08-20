@@ -1,23 +1,25 @@
-#+TITLE: LexiBar - macOS menu bar vocabulary app
+#+TITLE: LexiCards - macOS vocabulary card app
 #+AUTHOR: Andrey Pudov
 #+DATE: <2026-05-19 Tue>
 #+OPTIONS: toc:nil
 
 * Overview
 
-*LexiBar* is a lightweight, modern macOS application designed to support continuous vocabulary learning through subtle, high‑frequency exposure. It lives in the macOS menu bar, displaying a rotating sequence of words and their translations without interrupting your workflow.
+*LexiCards* is a lightweight, modern macOS application designed to support continuous vocabulary learning through subtle, high‑frequency exposure. It lives in the macOS menu bar and displays a small floating card with a rotating sequence of words and their translations without interrupting your workflow.
 
-*LexiBar* is intentionally minimalistic: no windows, no clutter, no distractions — just clean, ambient reinforcement of the vocabulary you want to learn.
+*LexiCards* is intentionally minimalistic: no regular windows, no clutter, no distractions — just clean, ambient reinforcement of the vocabulary you want to learn.
 
 * Features
 
 - Native macOS menu‑bar integration
 - Automatic cycling of vocabulary pairs
-- Clean, unobtrusive presentation
+- Floating word card in the lower-right corner
+- Card visible across Spaces and full-screen apps
+- Card visibility toggle in the menu bar
 - Support for user‑provided vocabulary files
 - Fast, lightweight Swift implementation
 
-*LexiBar* is ideal for language learners who prefer a passive, always‑visible learning tool that blends seamlessly into their daily computing environment.
+*LexiCards* is ideal for language learners who prefer a passive, always‑visible learning tool that blends seamlessly into their daily computing environment.
 
 * Vocabulary
 
@@ -25,7 +27,7 @@
 
 * Loading Vocabulary
 
-*LexiBar* reads vocabulary from a simple CSV file containing two columns:
+*LexiCards* reads vocabulary from a simple CSV file containing two columns:
 
 #+begin_example
 Original,Translation
@@ -42,17 +44,17 @@ Original,Translation
 - Header row is optional
 - Each row represents one vocabulary pair
 
-Once loaded, *LexiBar* cycles through the entries at a regular interval, displaying each pair in the menu bar.
+Once loaded, *LexiCards* cycles through the entries at a regular interval, displaying each pair in the floating card. Use *Show Card* in the menu bar to hide or show it.
 
 * Installation & Usage
 
-1. Launch *LexiBar* on macOS (macOS 12+ recommended).
-2. The *LexiBar* icon will appear in the menu bar.
+1. Launch *LexiCards* on macOS (macOS 12+ recommended).
+2. The *LexiCards* control will appear in the menu bar and a card will appear in the lower-right corner.
 3. Load your CSV vocabulary file through the app’s menu.
 4. Words will begin cycling automatically.
 
-*LexiBar* runs entirely from the menu bar and can be quit at any time from its dropdown menu.
+*LexiCards* runs entirely from the menu bar and can be quit at any time from its dropdown menu.
 
 * License
 
-*LexiBar* is distributed under the Apache License 2.0.
+*LexiCards* is distributed under the Apache License 2.0.

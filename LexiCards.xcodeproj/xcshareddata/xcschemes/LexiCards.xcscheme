@@ -16,9 +16,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "2C86CE312FBC917D00012698"
-               BuildableName = "LexiBar.app"
-               BlueprintName = "LexiBar"
-               ReferencedContainer = "container:LexiBar.xcodeproj">
+               BuildableName = "LexiCards.app"
+               BlueprintName = "LexiCards"
+               ReferencedContainer = "container:LexiCards.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -46,9 +46,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "2C86CE312FBC917D00012698"
-            BuildableName = "LexiBar.app"
-            BlueprintName = "LexiBar"
-            ReferencedContainer = "container:LexiBar.xcodeproj">
+            BuildableName = "LexiCards.app"
+            BlueprintName = "LexiCards"
+            ReferencedContainer = "container:LexiCards.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </LaunchAction>
@@ -63,9 +63,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "2C86CE312FBC917D00012698"
-            BuildableName = "LexiBar.app"
-            BlueprintName = "LexiBar"
-            ReferencedContainer = "container:LexiBar.xcodeproj">
+            BuildableName = "LexiCards.app"
+            BlueprintName = "LexiCards"
+            ReferencedContainer = "container:LexiCards.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>
