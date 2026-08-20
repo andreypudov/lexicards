@@ -5,6 +5,7 @@ class AppSettings {
 
     private enum Keys {
         static let wordInterval = "wordInterval"
+        static let pronunciationEnabled = "pronunciationEnabled"
         static let emptyVocabularyText = "emptyVocabularyText"
         static let defaultLanguageCode = "defaultLanguageCode"
         static let lastVocabularyBookmark = "lastVocabularyBookmark"
@@ -28,6 +29,15 @@ class AppSettings {
         }
         set {
             UserDefaults.standard.set(newValue, forKey: Keys.wordInterval)
+        }
+    }
+
+    var pronunciationEnabled: Bool {
+        get {
+            UserDefaults.standard.bool(forKey: Keys.pronunciationEnabled)
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: Keys.pronunciationEnabled)
         }
     }
 

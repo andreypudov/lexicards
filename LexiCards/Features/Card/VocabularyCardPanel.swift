@@ -53,8 +53,7 @@ final class VocabularyCardPanel: NSPanel, NSWindowDelegate {
         let size = CGSize(width: max(240, savedSize.width), height: savedSize.height)
         let initialView = VocabularyCardView(
             entry: nil,
-            emptyText: AppSettings.shared.emptyVocabularyText,
-            animateChanges: false
+            emptyText: AppSettings.shared.emptyVocabularyText
         )
         hostingView = MovableHostingView(rootView: initialView)
 
@@ -76,19 +75,13 @@ final class VocabularyCardPanel: NSPanel, NSWindowDelegate {
         delegate = self
     }
 
-    func update(entry: VocabularyEntry?, animated: Bool = true) {
+    func update(entry: VocabularyEntry?) {
         let view = VocabularyCardView(
             entry: entry,
-            emptyText: AppSettings.shared.emptyVocabularyText,
-            animateChanges: animated
+            emptyText: AppSettings.shared.emptyVocabularyText
         )
 
-        if animated {
-            hostingView.rootView = view
-        } else {
-            hostingView = MovableHostingView(rootView: view)
-            contentView = hostingView
-        }
+        hostingView.rootView = view
     }
 
     func restorePositionOrMoveToLowerRightCorner() {
