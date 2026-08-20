@@ -149,11 +149,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             )
 
             guard url.startAccessingSecurityScopedResource() else {
+                AppSettings.shared.lastVocabularyBookmark = nil
                 return false
             }
 
             guard vocabularyController.load(from: url) else {
                 url.stopAccessingSecurityScopedResource()
+                AppSettings.shared.lastVocabularyBookmark = nil
                 return false
             }
 
@@ -171,7 +173,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func saveBookmark(for url: URL) {
         do {
-            let bookmarkData = try url.bookmarkData(options: [.withSecurityScope])
+            let bookmarkData = try url.bookmarkData(
+                options: [.withSecurityScope, .securityScopeAllowOnlyReadAccess]
+            )
             AppSettings.shared.lastVocabularyBookmark = bookmarkData
         } catch {
             NSSound.beep()
