@@ -1,23 +1,27 @@
 import AppKit
 import ServiceManagement
+import UniformTypeIdentifiers
 import os
 
 final class AppCoordinator {
     private let vocabularyController = VocabularyController()
     private let vocabularyFileAccess = VocabularyFileAccess()
+    private let vocabularyLibrary = VocabularyLibrary()
     private let vocabularySpeaker = VocabularySpeaker()
     private let vocabularyCardPanel = VocabularyCardPanel()
     private let menuBarController = MenuBarController()
+    private let settingsModel = SettingsModel()
+    private lazy var settingsWindowController = SettingsWindowController(model: settingsModel)
     private var timer: Timer?
-    private var timerInterval: TimeInterval = 0
     private var isPronunciationEnabled = AppSettings.shared.pronunciationEnabled
     private var isCardVisible = AppSettings.shared.cardVisible
 
     func start() {
         configureMenuBar()
+        configureSettings()
         vocabularyCardPanel.restorePositionOrMoveToLowerRightCorner()
 
-        if vocabularyFileAccess.restoreLast(into: vocabularyController) {
+        if restoreSelectedVocabulary() {
             configureLoadedVocabulary()
         } else {
             showNextWord()
@@ -38,10 +42,10 @@ final class AppCoordinator {
 
     private func configureMenuBar() {
         menuBarController.onOpenVocabulary = { [weak self] in
-            self?.openVocabulary()
+            self?.openSettings(on: .vocabulary)
         }
-        menuBarController.onOpenVocabularyWebpage = { [weak self] in
-            self?.openVocabularyWebpage()
+        menuBarController.onOpenSettings = { [weak self] in
+            self?.openSettings(on: .application)
         }
         menuBarController.onToggleCard = { [weak self] in
             self?.toggleCard()
@@ -49,40 +53,124 @@ final class AppCoordinator {
         menuBarController.onTogglePronunciation = { [weak self] in
             self?.togglePronunciation()
         }
-        menuBarController.onToggleLaunchAtLogin = { [weak self] in
-            self?.toggleLaunchAtLogin()
-        }
         menuBarController.onQuit = {
             NSApp.terminate(nil)
         }
         menuBarController.update(
             isCardVisible: isCardVisible,
-            isPronunciationEnabled: isPronunciationEnabled,
-            isLaunchAtLoginEnabled: isLaunchAtLoginEnabled()
+            isPronunciationEnabled: isPronunciationEnabled
         )
     }
 
-    private func startWordTimer() {
-        let interval = AppSettings.shared.wordInterval
-        timerInterval = interval
-
-        timer?.invalidate()
-        timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
-            Task { @MainActor in
-                self?.handleTimerFired()
-            }
+    private func configureSettings() {
+        settingsModel.onSelectSource = { [weak self] source in
+            self?.selectVocabulary(source)
+        }
+        settingsModel.onAddUserVocabulary = { [weak self] in
+            self?.openVocabulary()
+        }
+        settingsModel.onRemoveSource = { [weak self] source in
+            self?.removeVocabulary(source)
+        }
+        settingsModel.onFontsChanged = { [weak self] in
+            self?.applyCardFonts()
+        }
+        settingsModel.onVoiceChanged = { [weak self] in
+            self?.vocabularySpeaker.applyVoicePreference()
+        }
+        settingsModel.onIntervalChanged = { [weak self] in
+            self?.startWordTimer()
+        }
+        settingsModel.onPreviewVoice = { [weak self] in
+            self?.previewVoice()
+        }
+        settingsModel.onSetLaunchAtLogin = { [weak self] isEnabled in
+            self?.setLaunchAtLogin(isEnabled)
         }
     }
 
-    /// There is no settings window, so `wordInterval` can only change underneath
-    /// a running app (`defaults write`). Re-reading it each tick lets a new value
-    /// take effect at the next rotation instead of at the next launch.
-    private func handleTimerFired() {
-        showNextWord()
+    private func applyCardFonts() {
+        vocabularyCardPanel.apply(
+            wordFont: .word(from: AppSettings.shared),
+            translationFont: .translation(from: AppSettings.shared)
+        )
+    }
 
-        if AppSettings.shared.wordInterval != timerInterval {
-            startWordTimer()
+    private func openSettings(on tab: SettingsTab) {
+        refreshSettingsModel()
+        settingsModel.selectedTab = tab
+        settingsWindowController.show()
+    }
+
+    private func refreshSettingsModel() {
+        settingsModel.sources = vocabularyLibrary.sources()
+        settingsModel.selectedSourceID = AppSettings.shared.selectedVocabularyIdentifier
+        settingsModel.entries = VocabularyEntryRow.rows(from: vocabularyController.allEntries)
+        settingsModel.wordInterval = AppSettings.shared.wordInterval
+        settingsModel.launchAtLogin = isLaunchAtLoginEnabled()
+    }
+
+    // MARK: - Vocabulary
+
+    /// Restores the vocabulary chosen in settings, falling back to whatever file
+    /// was open last so an install that predates the library still reopens it.
+    private func restoreSelectedVocabulary() -> Bool {
+        if let identifier = AppSettings.shared.selectedVocabularyIdentifier,
+            let source = vocabularyLibrary.source(withIdentifier: identifier),
+            vocabularyFileAccess.load(from: source.url, into: vocabularyController)
+        {
+            return true
         }
+
+        // An install predating the library, or a selection whose file has since
+        // moved. Adopt whatever was open last into the library so the settings
+        // dropdown names what is actually playing rather than a stale choice.
+        if vocabularyFileAccess.restoreLast(into: vocabularyController) {
+            if let path = AppSettings.shared.lastVocabularyPath {
+                let restored = URL(fileURLWithPath: path)
+                let adopted = vocabularyLibrary.addUserSource(at: restored)
+                AppSettings.shared.selectedVocabularyIdentifier = adopted?.id ?? path
+            }
+
+            return true
+        }
+
+        // First run: the app ships with vocabularies, so start on one instead of
+        // showing the empty-state text until the user goes looking for settings.
+        guard let firstBuiltIn = vocabularyLibrary.builtInSources().first,
+            vocabularyFileAccess.load(from: firstBuiltIn.url, into: vocabularyController)
+        else {
+            AppLog.vocabulary.error("No built-in vocabulary could be loaded on first run")
+            return false
+        }
+
+        AppSettings.shared.selectedVocabularyIdentifier = firstBuiltIn.id
+        return true
+    }
+
+    private func selectVocabulary(_ source: VocabularySource) {
+        guard vocabularyFileAccess.load(from: source.url, into: vocabularyController) else {
+            AppLog.vocabulary.error(
+                "Could not open vocabulary: \(source.name, privacy: .public)"
+            )
+            NSSound.beep()
+            return
+        }
+
+        AppSettings.shared.selectedVocabularyIdentifier = source.id
+        configureLoadedVocabulary()
+        refreshSettingsModel()
+    }
+
+    private func removeVocabulary(_ source: VocabularySource) {
+        guard source.kind == .user else { return }
+
+        vocabularyLibrary.removeUserSource(source)
+        if AppSettings.shared.selectedVocabularyIdentifier == source.id {
+            AppSettings.shared.selectedVocabularyIdentifier = nil
+        }
+
+        refreshSettingsModel()
     }
 
     private func openVocabulary() {
@@ -91,18 +179,21 @@ final class AppCoordinator {
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false
         panel.canChooseFiles = true
+        panel.allowedContentTypes = [.commaSeparatedText, .plainText]
 
-        if panel.runModal() == .OK, let url = panel.url {
-            guard vocabularyFileAccess.load(from: url, into: vocabularyController) else {
-                AppLog.vocabulary.error(
-                    "Could not open the selected vocabulary: \(url.lastPathComponent, privacy: .public)"
-                )
-                NSSound.beep()
-                return
-            }
-
-            configureLoadedVocabulary()
+        guard panel.runModal() == .OK, let url = panel.url else {
+            return
         }
+
+        guard let source = vocabularyLibrary.addUserSource(at: url) else {
+            AppLog.vocabulary.error(
+                "Could not add the selected vocabulary: \(url.lastPathComponent, privacy: .public)"
+            )
+            NSSound.beep()
+            return
+        }
+
+        selectVocabulary(source)
     }
 
     private func configureLoadedVocabulary() {
@@ -110,17 +201,44 @@ final class AppCoordinator {
         showNextWord()
     }
 
-    private func openVocabularyWebpage() {
-        guard let url = URL(string: AppConstants.vocabularyWebpageURL) else {
-            AppLog.application.error(
-                "Malformed vocabulary webpage URL: \(AppConstants.vocabularyWebpageURL, privacy: .public)"
-            )
-            NSSound.beep()
+    // MARK: - Card and rotation
+
+    private func startWordTimer() {
+        let interval = AppSettings.shared.wordInterval
+
+        timer?.invalidate()
+        timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                self?.showNextWord()
+            }
+        }
+    }
+
+    private func showNextWord() {
+        vocabularyController.nextRandom()
+        let entry = vocabularyController.currentEntry
+
+        vocabularyCardPanel.update(entry: entry)
+
+        guard isPronunciationEnabled, let entry else {
             return
         }
-
-        NSWorkspace.shared.open(url)
+        vocabularySpeaker.speak(entry: entry)
     }
+
+    private func toggleCard() {
+        isCardVisible.toggle()
+        AppSettings.shared.cardVisible = isCardVisible
+        menuBarController.setCardVisible(isCardVisible)
+
+        if isCardVisible {
+            vocabularyCardPanel.orderFrontRegardless()
+        } else {
+            vocabularyCardPanel.orderOut(nil)
+        }
+    }
+
+    // MARK: - Pronunciation
 
     private func togglePronunciation() {
         isPronunciationEnabled.toggle()
@@ -137,44 +255,33 @@ final class AppCoordinator {
         }
     }
 
-    private func toggleCard() {
-        isCardVisible.toggle()
-        AppSettings.shared.cardVisible = isCardVisible
-        menuBarController.setCardVisible(isCardVisible)
-
-        if isCardVisible {
-            vocabularyCardPanel.orderFrontRegardless()
-        } else {
-            vocabularyCardPanel.orderOut(nil)
-        }
+    /// Auditions the voice on the card that is showing, so the sample is in the
+    /// language being learned rather than a canned phrase.
+    private func previewVoice() {
+        let sample = vocabularyController.currentEntry?.original ?? "LexiCards"
+        vocabularySpeaker.preview(
+            voiceIdentifier: AppSettings.shared.voiceIdentifier,
+            text: sample
+        )
     }
 
-    private func toggleLaunchAtLogin() {
+    // MARK: - Launch at login
+
+    private func setLaunchAtLogin(_ isEnabled: Bool) {
         do {
-            if isLaunchAtLoginEnabled() {
-                try SMAppService.mainApp.unregister()
-            } else {
+            if isEnabled {
                 try SMAppService.mainApp.register()
+            } else {
+                try SMAppService.mainApp.unregister()
             }
-            menuBarController.setLaunchAtLoginEnabled(isLaunchAtLoginEnabled())
         } catch {
             AppLog.application.error(
                 "Could not change the launch-at-login registration: \(error.localizedDescription, privacy: .public)"
             )
             NSSound.beep()
         }
-    }
 
-    private func showNextWord() {
-        vocabularyController.nextRandom()
-        let entry = vocabularyController.currentEntry
-
-        vocabularyCardPanel.update(entry: entry)
-
-        guard isPronunciationEnabled, let entry else {
-            return
-        }
-        vocabularySpeaker.speak(entry: entry)
+        settingsModel.launchAtLogin = isLaunchAtLoginEnabled()
     }
 
     private func isLaunchAtLoginEnabled() -> Bool {

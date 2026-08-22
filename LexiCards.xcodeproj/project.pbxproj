@@ -6,11 +6,6 @@
 	objectVersion = 77;
 	objects = {
 
-/* Begin PBXFileReference section */
-		2C86CE322FBC917D00012698 /* LexiCards.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LexiCards.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		2C86CE352FBC917D00012698 /* LexiCardsTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.xctest; includeInIndex = 0; path = LexiCardsTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-/* End PBXFileReference section */
-
 /* Begin PBXContainerItemProxy section */
 		2C86CE4A2FBC917D00012698 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -20,6 +15,11 @@
 			remoteInfo = LexiCards;
 		};
 /* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		2C86CE322FBC917D00012698 /* LexiCards.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LexiCards.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		2C86CE352FBC917D00012698 /* LexiCardsTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = file; path = LexiCardsTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		2C86CE342FBC917D00012698 /* LexiCards */ = {
@@ -120,14 +120,6 @@
 		};
 /* End PBXNativeTarget section */
 
-/* Begin PBXTargetDependency section */
-		2C86CE4B2FBC917D00012698 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 2C86CE312FBC917D00012698 /* LexiCards */;
-			targetProxy = 2C86CE4A2FBC917D00012698 /* PBXContainerItemProxy */;
-		};
-/* End PBXTargetDependency section */
-
 /* Begin PBXProject section */
 		2C86CE2A2FBC917D00012698 /* Project object */ = {
 			isa = PBXProject;
@@ -198,6 +190,14 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		2C86CE4B2FBC917D00012698 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 2C86CE312FBC917D00012698 /* LexiCards */;
+			targetProxy = 2C86CE4A2FBC917D00012698 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		2C86CE3B2FBC917E00012698 /* Debug */ = {
@@ -336,7 +336,7 @@
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_LSUIElement = YES;
-				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "© 2026 Andrey Pudov · Apache License 2.0";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -369,7 +369,7 @@
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_LSUIElement = YES;
-				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "© 2026 Andrey Pudov · Apache License 2.0";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",

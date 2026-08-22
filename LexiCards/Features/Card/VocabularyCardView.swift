@@ -3,13 +3,15 @@ import SwiftUI
 struct VocabularyCardView: View {
     let entry: VocabularyEntry?
     let emptyText: String
+    let wordFont: CardFont
+    let translationFont: CardFont
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             content
         }
         .padding(18)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18))
         .overlay {
             RoundedRectangle(cornerRadius: 18)
@@ -22,12 +24,12 @@ struct VocabularyCardView: View {
         if let entry {
             VStack(alignment: .leading, spacing: 8) {
                 Text(entry.original)
-                    .font(.system(size: 26, weight: .semibold, design: .rounded))
+                    .font(wordFont.resolved)
                     .lineLimit(2)
                     .truncationMode(.tail)
 
                 Text(entry.translation)
-                    .font(.system(size: 17, weight: .regular, design: .rounded))
+                    .font(translationFont.resolved)
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
                     .truncationMode(.tail)
