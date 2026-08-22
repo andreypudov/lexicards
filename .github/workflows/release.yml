@@ -7,13 +7,17 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   release:
     # AppKit picks an app's appearance from the SDK it was linked against, not
     # from the macOS running it. Building on an older image shipped a binary
     # that looked like a pre-26 app on every current Mac, while local builds
     # looked native — so the runner image is a user-visible choice, not a
-    # detail. The deployment target is set in the project and is
+    # detail. The deployment target (13.5) is set in the project and is
     # unaffected by this.
     runs-on: macos-26
     steps:
@@ -22,43 +26,35 @@ jobs:
       - name: Show toolchain
         run: xcodebuild -version && xcrun --show-sdk-version
 
-      - name: Run Swift Testing suite
+      - name: Run unit tests
+        run: make test
+
+      # The zip is named for the version inside the bundle, and the Homebrew
+      # cask builds its download URL from the tag. If those disagree the release
+      # publishes an asset the cask can never resolve, so they are checked here
+      # rather than discovered by whoever runs brew install next.
+      - name: Verify the tag matches the project version
         run: |
-          xcodebuild \
-            -project LexiCards.xcodeproj \
-            -scheme LexiCards \
-            -configuration Debug \
-            -sdk macosx \
-            -destination 'platform=macOS' \
-            -derivedDataPath build/TestDerivedData \
-            CODE_SIGNING_ALLOWED=NO \
-            test
+          version=$(xcodebuild -project LexiCards.xcodeproj -target LexiCards \
+            -configuration Release -showBuildSettings \
+            | awk -F' = ' '/ MARKETING_VERSION /{print $2; exit}')
+          tag=${GITHUB_REF_NAME#v}
+          echo "tag $tag, MARKETING_VERSION $version"
+          if [ "$tag" != "$version" ]; then
+            echo "::error::tag v$tag does not match MARKETING_VERSION $version"
+            exit 1
+          fi
 
       - name: Build and package
-        run: |
-          rm -rf build dist
-          mkdir -p dist
-          xcodebuild \
-            -project LexiCards.xcodeproj \
-            -scheme LexiCards \
-            -configuration Release \
-            -sdk macosx \
-            -destination 'platform=macOS' \
-            -derivedDataPath build/DerivedData \
-            CODE_SIGNING_ALLOWED=NO \
-            build
-          ditto -c -k --sequesterRsrc --keepParent \
-            build/DerivedData/Build/Products/Release/LexiCards.app \
-            dist/LexiCards.zip
+        run: make release
 
       # The failure this guards against is silent: a runner image whose default
       # Xcode has moved produces a working, correctly versioned app that simply
       # renders as the wrong generation of macOS. Better to fail the release.
       - name: Verify the binary is linked against a current SDK
         run: |
-          sdk=$(otool -l build/DerivedData/Build/Products/Release/LexiCards.app/Contents/MacOS/LexiCards \
-            | awk '/LC_BUILD_VERSION/ {found=1} found && /sdk /{print $2; exit}')
-          sdk=${sdk#macos}
+          sdk=$(otool -l build/Release/LexiCards.app/Contents/MacOS/LexiCards \
+                | awk '/LC_BUILD_VERSION/ {found=1} found && /sdk /{print $2; exit}')
           echo "linked against SDK $sdk"
           case "$sdk" in
             2[6-9].*|[3-9][0-9].*) ;;

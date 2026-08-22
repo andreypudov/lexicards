@@ -1,6 +1,6 @@
 import Foundation
 
-class AppSettings {
+final class AppSettings {
     static let shared = AppSettings()
 
     private enum Keys {
@@ -14,12 +14,14 @@ class AppSettings {
         static let cardWindowOriginY = "cardWindowOriginY"
         static let cardWindowWidth = "cardWindowWidth"
         static let cardWindowHeight = "cardWindowHeight"
+        static let cardVisible = "cardVisible"
     }
 
     private enum Defaults {
         static let wordInterval: TimeInterval = 8
         static let emptyVocabularyText = "LexiCards: Hello!"
         static let defaultLanguageCode = "en-US"
+        static let cardVisible = true
     }
 
     var wordInterval: TimeInterval {
@@ -87,6 +89,21 @@ class AppSettings {
         }
     }
 
+    /// Card visibility is remembered alongside the card's geometry, so hiding it
+    /// survives a relaunch the way its position and size already did.
+    var cardVisible: Bool {
+        get {
+            guard UserDefaults.standard.object(forKey: Keys.cardVisible) != nil else {
+                return Defaults.cardVisible
+            }
+
+            return UserDefaults.standard.bool(forKey: Keys.cardVisible)
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: Keys.cardVisible)
+        }
+    }
+
     var cardWindowOrigin: CGPoint? {
         get {
             guard
@@ -108,7 +125,8 @@ class AppSettings {
         get {
             guard
                 let width = UserDefaults.standard.object(forKey: Keys.cardWindowWidth) as? NSNumber,
-                let height = UserDefaults.standard.object(forKey: Keys.cardWindowHeight) as? NSNumber
+                let height = UserDefaults.standard.object(forKey: Keys.cardWindowHeight)
+                    as? NSNumber
             else {
                 return nil
             }

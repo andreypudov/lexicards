@@ -10,9 +10,10 @@ final class MovableHostingView: NSHostingView<VocabularyCardView> {
             return
         }
 
-        dragStart = window.convertToScreen(
-            NSRect(origin: event.locationInWindow, size: .zero)
-        ).origin
+        dragStart =
+            window.convertToScreen(
+                NSRect(origin: event.locationInWindow, size: .zero)
+            ).origin
         windowStartOrigin = window.frame.origin
     }
 

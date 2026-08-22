@@ -120,3 +120,7 @@ Backups.backupdb
 .MobileBackups.trash
 MobileBackups.trash
 tmbootpicker.efi
+
+# Build output (xcodebuild's default SYMROOT and `make release` staging)
+build/
+dist/

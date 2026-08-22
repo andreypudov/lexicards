@@ -6,7 +6,8 @@ enum VocabularyLoader {
             return []
         }
 
-        return content
+        return
+            content
             .components(separatedBy: .newlines)
             .filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
             .compactMap { parse(line: $0) }

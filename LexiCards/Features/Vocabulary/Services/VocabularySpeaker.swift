@@ -22,10 +22,12 @@ final class VocabularySpeaker {
     }
 
     func configureLanguages(entries: [VocabularyEntry]) {
-        let originalText = entries
+        let originalText =
+            entries
             .map(\.original)
             .joined(separator: "\n")
-        let translationText = entries
+        let translationText =
+            entries
             .map(\.translation)
             .joined(separator: "\n")
 

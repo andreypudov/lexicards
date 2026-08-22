@@ -1,5 +1,6 @@
 import AppKit
 import ServiceManagement
+import os
 
 final class AppCoordinator {
     private let vocabularyController = VocabularyController()
@@ -8,7 +9,9 @@ final class AppCoordinator {
     private let vocabularyCardPanel = VocabularyCardPanel()
     private let menuBarController = MenuBarController()
     private var timer: Timer?
+    private var timerInterval: TimeInterval = 0
     private var isPronunciationEnabled = AppSettings.shared.pronunciationEnabled
+    private var isCardVisible = AppSettings.shared.cardVisible
 
     func start() {
         configureMenuBar()
@@ -20,12 +23,16 @@ final class AppCoordinator {
             showNextWord()
         }
 
-        vocabularyCardPanel.orderFrontRegardless()
+        if isCardVisible {
+            vocabularyCardPanel.orderFrontRegardless()
+        }
+
         startWordTimer()
     }
 
     func stop() {
         timer?.invalidate()
+        timer = nil
         vocabularyFileAccess.stopAccessing()
     }
 
@@ -49,20 +56,32 @@ final class AppCoordinator {
             NSApp.terminate(nil)
         }
         menuBarController.update(
-            isCardVisible: true,
+            isCardVisible: isCardVisible,
             isPronunciationEnabled: isPronunciationEnabled,
             isLaunchAtLoginEnabled: isLaunchAtLoginEnabled()
         )
     }
 
     private func startWordTimer() {
-        timer = Timer.scheduledTimer(
-            withTimeInterval: AppSettings.shared.wordInterval,
-            repeats: true
-        ) { [weak self] _ in
-            Task { @MainActor [weak self] in
-                self?.showNextWord()
+        let interval = AppSettings.shared.wordInterval
+        timerInterval = interval
+
+        timer?.invalidate()
+        timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                self?.handleTimerFired()
             }
+        }
+    }
+
+    /// There is no settings window, so `wordInterval` can only change underneath
+    /// a running app (`defaults write`). Re-reading it each tick lets a new value
+    /// take effect at the next rotation instead of at the next launch.
+    private func handleTimerFired() {
+        showNextWord()
+
+        if AppSettings.shared.wordInterval != timerInterval {
+            startWordTimer()
         }
     }
 
@@ -75,6 +94,9 @@ final class AppCoordinator {
 
         if panel.runModal() == .OK, let url = panel.url {
             guard vocabularyFileAccess.load(from: url, into: vocabularyController) else {
+                AppLog.vocabulary.error(
+                    "Could not open the selected vocabulary: \(url.lastPathComponent, privacy: .public)"
+                )
                 NSSound.beep()
                 return
             }
@@ -90,6 +112,9 @@ final class AppCoordinator {
 
     private func openVocabularyWebpage() {
         guard let url = URL(string: AppConstants.vocabularyWebpageURL) else {
+            AppLog.application.error(
+                "Malformed vocabulary webpage URL: \(AppConstants.vocabularyWebpageURL, privacy: .public)"
+            )
             NSSound.beep()
             return
         }
@@ -113,10 +138,11 @@ final class AppCoordinator {
     }
 
     private func toggleCard() {
-        let shouldShow = !vocabularyCardPanel.isVisible
-        menuBarController.setCardVisible(shouldShow)
+        isCardVisible.toggle()
+        AppSettings.shared.cardVisible = isCardVisible
+        menuBarController.setCardVisible(isCardVisible)
 
-        if shouldShow {
+        if isCardVisible {
             vocabularyCardPanel.orderFrontRegardless()
         } else {
             vocabularyCardPanel.orderOut(nil)
@@ -132,12 +158,15 @@ final class AppCoordinator {
             }
             menuBarController.setLaunchAtLoginEnabled(isLaunchAtLoginEnabled())
         } catch {
+            AppLog.application.error(
+                "Could not change the launch-at-login registration: \(error.localizedDescription, privacy: .public)"
+            )
             NSSound.beep()
         }
     }
 
     private func showNextWord() {
-        _ = vocabularyController.nextRandom()
+        vocabularyController.nextRandom()
         let entry = vocabularyController.currentEntry
 
         vocabularyCardPanel.update(entry: entry)

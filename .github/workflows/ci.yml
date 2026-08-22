@@ -5,6 +5,15 @@ on:
     branches: ["master"]
   pull_request:
 
+permissions:
+  contents: read
+
+# A branch only needs its newest commit checked; macOS runners bill at ten
+# times the Linux rate, so superseded runs are cancelled rather than queued.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     # Kept in step with the release job: tests have to run against the same
@@ -17,30 +26,10 @@ jobs:
         run: xcodebuild -version && xcrun --show-sdk-version
 
       - name: Check formatting
-        run: |
-          brew install swiftformat
-          swiftformat LexiCards LexiCardsTests --lint
+        run: make lint
 
-      - name: Run Swift Testing suite
-        run: |
-          xcodebuild \
-            -project LexiCards.xcodeproj \
-            -scheme LexiCards \
-            -configuration Debug \
-            -sdk macosx \
-            -destination 'platform=macOS' \
-            -derivedDataPath build/DerivedData \
-            CODE_SIGNING_ALLOWED=NO \
-            test
+      - name: Run unit tests
+        run: make test
 
-      - name: Build Debug configuration
-        run: |
-          xcodebuild \
-            -project LexiCards.xcodeproj \
-            -scheme LexiCards \
-            -configuration Debug \
-            -sdk macosx \
-            -destination 'platform=macOS' \
-            -derivedDataPath build/DerivedData \
-            CODE_SIGNING_ALLOWED=NO \
-            build
+      - name: Build release configuration
+        run: make build

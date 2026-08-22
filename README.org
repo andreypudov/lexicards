@@ -2,7 +2,7 @@
 #+SUBTITLE: Ambient vocabulary learning for macOS
 #+OPTIONS: toc:nil
 
-[[./Asserts/Icon.png]]
+[[./Assets/Icon.png]]
 
 LexiCards keeps vocabulary visible while you work. It lives in the menu bar and displays a small floating card with a rotating sequence of words and their translations, without opening a regular application window or interrupting your workflow.
 
@@ -14,7 +14,7 @@ LexiCards runs as a menu bar application with no Dock icon. The status menu carr
 
 ** Ambient floating card
 
-The card stays above normal windows and can join all Spaces and full-screen apps. It starts near the lower-right corner, can be dragged anywhere, and remembers its position and size between launches.
+The card stays above normal windows and can join all Spaces and full-screen apps. It starts near the lower-right corner, can be dragged anywhere, and remembers its position, size, and whether it was hidden between launches.
 
 ** Automatic cycling
 
@@ -27,7 +27,7 @@ When pronunciation is enabled, each displayed entry is spoken using the language
 * Requirements
 
 - macOS *13.5* or later
-- Xcode *16* or later to build from source
+- Xcode *26* or later to build from source
 
 * Installation
 
@@ -43,17 +43,32 @@ brew install --cask lexicards
 
 Upgrade later with =brew update && brew upgrade --cask lexicards=.
 
+LexiCards is currently unsigned and unnotarized, so macOS may block first launch.
+Allow it in System Settings → Privacy & Security, or clear the quarantine flag:
+
+#+begin_src sh
+xattr -dr com.apple.quarantine /Applications/LexiCards.app
+#+end_src
+
 ** Build from source
 
-Clone the repository, open the Xcode project, and run the *LexiCards* scheme:
+Requires Xcode 26 or later. Locally built applications are not quarantined, so
+LexiCards launches with no Gatekeeper warnings:
 
 #+begin_src sh
 git clone https://github.com/AndreyPudov/lexicards.git
 cd lexicards
-xcodebuild -project LexiCards.xcodeproj -scheme LexiCards -configuration Release build
+make install
 #+end_src
 
-The built application is produced in Xcode's derived-data build directory. For development, open =LexiCards.xcodeproj= in Xcode and press Run.
+This builds a Release copy and installs it to =/Applications=.
+
+For development, open =LexiCards.xcodeproj= in Xcode and press Run.
+
+** Prebuilt binary
+
+Download the latest =LexiCards-x.y.zip= from the *Releases* page, unzip, and move
+=LexiCards.app= to =/Applications=, then clear the quarantine flag as above.
 
 * First launch
 
@@ -62,18 +77,17 @@ The built application is produced in Xcode's derived-data build directory. For d
 3. Use *Show Card* to hide or reveal the card without stopping the vocabulary timer.
 4. Enable *Pronounce Cards* when spoken reinforcement is useful.
 
-The selected file and card placement are restored automatically on subsequent launches.
+The selected file, card placement, and card visibility are restored automatically on subsequent launches.
 
 * Using LexiCards
 
 *Menu bar* — open a vocabulary file, download vocabulary, show or hide the card, enable pronunciation, enable launch at login, or quit.
 
-*Card* — drag the floating card to place it. Its position and size are saved automatically. The card remains available across Spaces and full-screen applications.
+*Card* — drag the floating card to place it. Its position, size, and visibility are saved automatically. The card remains available across Spaces and full-screen applications.
 
 *Vocabulary* — use a UTF-8 CSV file with two columns. Omit the header row; blank or malformed rows are ignored:
 
 #+begin_example
-Original,Translation
 猫,cat
 犬,dog
 水,water
@@ -104,10 +118,9 @@ The repository includes these example vocabularies:
 Architecture notes, build and test instructions are in [[file:DEVELOPMENT.org][DEVELOPMENT.org]].
 
 #+begin_src sh
-swiftformat .
-swiftformat . --lint
-xcodebuild -project LexiCards.xcodeproj -scheme LexiCards test
-xcodebuild -project LexiCards.xcodeproj -scheme LexiCards -configuration Release build
+make build   # build the Release configuration
+make test    # run the unit test suite
+make release # build and package a distributable zip
 #+end_src
 
 * License

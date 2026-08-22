@@ -1,6 +1,6 @@
 import Foundation
 
-class VocabularyController {
+final class VocabularyController {
     private var entries: [VocabularyEntry] = []
     private var index = -1
 
@@ -13,27 +13,26 @@ class VocabularyController {
         return entries[index]
     }
 
-    func next() -> String {
-        guard !entries.isEmpty else { return AppSettings.shared.emptyVocabularyText }
-        index = (index + 1) % entries.count
-        return entries[index].displayText
-    }
-
-    func nextRandom() -> String {
-        guard !entries.isEmpty else { return AppSettings.shared.emptyVocabularyText }
+    /// Selects a new entry at random and returns it.
+    ///
+    /// The entry currently on screen is excluded, so a rotation never appears to
+    /// stall; with a single entry there is nothing else to choose and it stays.
+    @discardableResult
+    func nextRandom() -> VocabularyEntry? {
+        guard !entries.isEmpty else { return nil }
 
         if entries.count == 1 {
             index = 0
-            return entries[0].displayText
+            return entries[0]
         }
 
         var nextIndex: Int
         repeat {
-            nextIndex = Int.random(in: 0 ..< entries.count)
+            nextIndex = Int.random(in: 0..<entries.count)
         } while nextIndex == index
 
         index = nextIndex
-        return entries[index].displayText
+        return entries[index]
     }
 
     @discardableResult

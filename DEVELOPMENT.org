@@ -5,9 +5,11 @@
 * Requirements
 
 - macOS *13.5* or later
-- Xcode *16* or later
+- Xcode *26* or later
 - Swift *6.0*
-- [[https://github.com/nicklockwood/SwiftFormat][SwiftFormat]] for formatting and linting
+
+Formatting uses =swift-format=, which ships with the Xcode toolchain, so there
+is nothing to install.
 
 The project is an AppKit and SwiftUI menu bar application. It is configured as
 a UI-element application, so it does not appear in the Dock or present a normal
@@ -46,8 +48,13 @@ full-screen applications, and persists its position and size through
 
 =VocabularySpeaker= provides pronunciation through the system speech APIs.
 =AppSettings= is the small persistence boundary for preferences, the last
-vocabulary bookmark, and card geometry. Keep new persisted values there rather
-than reaching into =UserDefaults= from feature code.
+vocabulary bookmark, and card geometry and visibility. Keep new persisted values
+there rather than reaching into =UserDefaults= from feature code.
+
+=AppLog= holds the =os.Logger= instances. The app reports failures to the user
+with =NSSound.beep()=, which says that something went wrong but never what, so
+every beep is paired with a log entry. Read them with =log stream --predicate
+'subsystem == "com.andreypudov.LexiCards"'= or in Console.app.
 
 * Repository layout
 
@@ -59,35 +66,41 @@ LexiCards/
   Features/Vocabulary/
     Models/          Vocabulary data types
     Services/        Loading, persistence, selection, and speech
-  Infrastructure/    Shared constants and settings
+  Infrastructure/    Shared constants, settings, and logging
 Vocabularies/        Example CSV files
-Asserts/              Source artwork and asset files
+Assets/              Source artwork and asset files
 #+end_example
 
 * Build
 
 Open =LexiCards.xcodeproj= in Xcode and run the shared *LexiCards* scheme.
-The command-line equivalents are:
+The command-line equivalents go through the Makefile, which is also what CI
+runs, so a green local run and a green pipeline mean the same thing:
 
 #+begin_src sh
-xcodebuild -project LexiCards.xcodeproj -scheme LexiCards -configuration Debug build
-xcodebuild -project LexiCards.xcodeproj -scheme LexiCards -configuration Release build
+make build   # build the Release configuration into build/Release
+make install # build and install to /Applications
+make release # build and package dist/LexiCards-<version>.zip
+make clean   # remove build/ and dist/
 #+end_src
 
-The release build can be archived from Xcode using *Product -> Archive*.
+=make build= produces =build/Release/LexiCards.app=. The zip that =make release=
+writes is named for =CFBundleShortVersionString= in the built bundle, because the
+Homebrew cask derives its download URL from the version.
 
 * Formatting
 
-The repository uses SwiftFormat with Swift 6 syntax, four-space indentation,
-and Xcode-compatible indentation rules. From the repository root:
+The repository uses Apple's =swift-format=, configured in =.swift-format=.
+It ships with the Xcode toolchain, so there is no dependency to install and no
+version to drift against CI. From the repository root:
 
 #+begin_src sh
-swiftformat .
-swiftformat . --lint
+make format # apply the rules in place
+make lint   # report violations, failing on any finding
 #+end_src
 
-Run the lint command before opening a pull request. Formatting changes should
-stay separate from behavioral changes when practical.
+Run =make lint= before opening a pull request. Formatting changes should stay
+separate from behavioral changes when practical.
 
 * Testing
 
@@ -95,16 +108,17 @@ The project uses the Swift Testing framework. The shared Xcode scheme includes
 the =LexiCardsTests= unit-test target. Run the suite from Xcode or with:
 
 #+begin_src sh
-xcodebuild -project LexiCards.xcodeproj -scheme LexiCards test
+make test
 #+end_src
 
-The current tests cover vocabulary display text, CSV loading, malformed and
-unreadable files, sequential and random selection, and empty-state behavior.
-Use a clean build and a manual smoke test alongside the automated suite:
+The current tests cover CSV loading, malformed and unreadable files, random
+selection (including that a rotation never repeats the entry already on screen,
+and that every entry is reachable), reloading over an existing vocabulary, and
+empty-state behavior. They exercise the same API the app calls, so a passing
+suite says something about the shipped behaviour.
 
-#+begin_src sh
-xcodebuild -project LexiCards.xcodeproj -scheme LexiCards clean build
-#+end_src
+Tests must not depend on =AppSettings=; it wraps =UserDefaults=, which is shared
+mutable process state. Keep new logic testable without it.
 
 The smoke test should verify that the app starts without a Dock icon, opens a
 UTF-8 CSV file, rotates entries, toggles the card, speaks an entry when enabled,
@@ -112,69 +126,38 @@ restores the selected file after relaunch, and remembers the card position.
 
 * Adding tests
 
-When introducing a test target, prioritize the platform-independent vocabulary
-behavior first: CSV loading, empty and malformed rows, random selection, and
-the default settings values. Keep AppKit panel and menu tests focused on the
+Prioritize the platform-independent vocabulary behavior: CSV loading, empty and
+malformed rows, and selection. Keep AppKit panel and menu tests focused on the
 smallest integration behavior that cannot be covered at the service level.
 
 * Pull requests
 
 Before submitting a change:
 
-1. Run =swiftformat . --lint=
-2. Run =xcodebuild -project LexiCards.xcodeproj -scheme LexiCards test=
-3. Build Debug and Release configurations locally (see Pre-push verification below)
+1. Run =make lint=
+2. Run =make test=
+3. Run =make build= (see Pre-push verification below)
 4. Exercise the affected menu or card workflow manually
 5. Update [[file:README.org][README.org]] when user-visible behavior or file format changes
 
 ** Pre-push verification
 
 To catch compiler errors and optimizer crashes before they reach CI, run the
-full gate locally. This is especially important for Release builds, which can
-surface Swift optimizer crashes not present in Debug.
+full gate locally. The three commands below are exactly what =.github/workflows/ci.yml=
+runs, in the same order, so passing locally means passing in CI.
 
-From the repository root:
+=make build= builds the *Release* configuration, which matters: Release-only
+optimizer crashes have reached this project before and do not reproduce in a
+Debug build.
 
 #+begin_src sh
-# Check formatting
-swiftformat LexiCards LexiCardsTests --lint
-
-# Run tests (Debug configuration)
-xcodebuild \
-  -project LexiCards.xcodeproj \
-  -scheme LexiCards \
-  -configuration Debug \
-  -sdk macosx \
-  -destination 'platform=macOS' \
-  -derivedDataPath build/DerivedData \
-  CODE_SIGNING_ALLOWED=NO \
-  test
-
-# Build Debug
-xcodebuild \
-  -project LexiCards.xcodeproj \
-  -scheme LexiCards \
-  -configuration Debug \
-  -sdk macosx \
-  -destination 'platform=macOS' \
-  -derivedDataPath build/DerivedData \
-  CODE_SIGNING_ALLOWED=NO \
-  build
-
-# Build Release (catches optimizer crashes not visible in Debug)
-xcodebuild \
-  -project LexiCards.xcodeproj \
-  -scheme LexiCards \
-  -configuration Release \
-  -sdk macosx \
-  -destination 'platform=macOS' \
-  -derivedDataPath build/DerivedData \
-  CODE_SIGNING_ALLOWED=NO \
-  build
+make lint
+make test
+make build
 #+end_src
 
-All commands must pass before pushing. See [[file:AGENT.md][AGENT.md]] for integration with CI
-workflows and notes on specific optimizer issues.
+All three must pass before pushing. See [[file:AGENT.md][AGENT.md]] for notes on specific
+optimizer issues.
 
 * License
 

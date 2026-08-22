@@ -74,16 +74,18 @@ final class MenuBarController: NSObject {
 
     private func configureMenu() {
         let menu = NSMenu()
-        menu.addItem(makeItem(
-            title: "Open Vocabulary",
-            action: #selector(openVocabulary),
-            keyEquivalent: "o"
-        ))
-        menu.addItem(makeItem(
-            title: "Download Vocabulary",
-            action: #selector(openVocabularyWebpage),
-            keyEquivalent: ""
-        ))
+        menu.addItem(
+            makeItem(
+                title: "Open Vocabulary",
+                action: #selector(openVocabulary),
+                keyEquivalent: "o"
+            ))
+        menu.addItem(
+            makeItem(
+                title: "Download Vocabulary",
+                action: #selector(openVocabularyWebpage),
+                keyEquivalent: ""
+            ))
 
         showCardMenuItem.target = self
         menu.addItem(showCardMenuItem)
