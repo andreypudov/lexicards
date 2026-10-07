@@ -14,7 +14,7 @@ LexiCards runs as a menu bar application with no Dock icon. The status menu carr
 
 ** Ambient floating card
 
-The card stays above normal windows and can join all Spaces and full-screen apps. It starts near the lower-right corner, can be dragged anywhere, and remembers its position, size, and whether it was hidden between launches.
+The card stays above normal windows and can join all Spaces and full-screen apps. It starts near the lower-right corner and can be dragged anywhere. Drag either side to change its width; the height follows the text. Position, width, and whether it was hidden are remembered between launches.
 
 ** Automatic cycling
 
@@ -83,7 +83,7 @@ The selected file, card placement, and card visibility are restored automaticall
 
 *Menu bar* — open a vocabulary file, download vocabulary, show or hide the card, enable pronunciation, enable launch at login, or quit.
 
-*Card* — drag the floating card to place it. Its position, size, and visibility are saved automatically. The card remains available across Spaces and full-screen applications.
+*Card* — drag the floating card to place it, or drag either side to change its width. Position, width, and visibility are saved automatically. The card remains available across Spaces and full-screen applications.
 
 *Vocabulary* — use a UTF-8 CSV file with two columns. Omit the header row; blank or malformed rows are ignored:
 

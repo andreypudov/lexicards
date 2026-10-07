@@ -2,19 +2,65 @@ import AppKit
 import SwiftUI
 
 final class MovableHostingView: NSHostingView<VocabularyCardView> {
+    /// Wide enough to grab, narrow enough that dragging the card still moves it.
+    private static let resizeMargin: CGFloat = 10
+
     private var dragStart: NSPoint?
     private var windowStartOrigin: NSPoint?
+    private var windowStartFrame: NSRect?
+    private var resizeEdge: VocabularyCardPanel.HorizontalEdge?
+    private var trackingArea: NSTrackingArea?
+    private var isShowingResizeCursor = false
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+
+        if let trackingArea {
+            removeTrackingArea(trackingArea)
+        }
+
+        // The panel can never become key, so cursor rects never take effect.
+        // A tracking area still reports movement while another app is active.
+        let area = NSTrackingArea(
+            rect: bounds,
+            options: [.mouseMoved, .mouseEnteredAndExited, .activeAlways, .inVisibleRect],
+            owner: self,
+            userInfo: nil
+        )
+        addTrackingArea(area)
+        trackingArea = area
+    }
+
+    override func mouseMoved(with event: NSEvent) {
+        updateCursor(at: convert(event.locationInWindow, from: nil))
+    }
+
+    override func mouseEntered(with event: NSEvent) {
+        updateCursor(at: convert(event.locationInWindow, from: nil))
+    }
+
+    override func mouseExited(with _: NSEvent) {
+        guard resizeEdge == nil else {
+            return
+        }
+
+        hideResizeCursor()
+    }
 
     override func mouseDown(with event: NSEvent) {
         guard let window else {
             return
         }
 
+        let location = convert(event.locationInWindow, from: nil)
+        resizeEdge = horizontalEdge(at: location)
         dragStart =
             window.convertToScreen(
                 NSRect(origin: event.locationInWindow, size: .zero)
             ).origin
         windowStartOrigin = window.frame.origin
+        windowStartFrame = window.frame
+        updateCursor(at: location)
     }
 
     override func mouseDragged(with event: NSEvent) {
@@ -28,6 +74,11 @@ final class MovableHostingView: NSHostingView<VocabularyCardView> {
         let deltaX = currentLocation.x - dragStart.x
         let deltaY = currentLocation.y - dragStart.y
 
+        if let resizeEdge, let panel = window as? VocabularyCardPanel, let windowStartFrame {
+            panel.resizeWidth(by: deltaX, from: windowStartFrame, pinning: resizeEdge)
+            return
+        }
+
         guard let windowStartOrigin else {
             return
         }
@@ -40,13 +91,65 @@ final class MovableHostingView: NSHostingView<VocabularyCardView> {
         )
     }
 
-    override func mouseUp(with _: NSEvent) {
+    override func mouseUp(with event: NSEvent) {
         dragStart = nil
         windowStartOrigin = nil
+        windowStartFrame = nil
+        resizeEdge = nil
+        updateCursor(at: convert(event.locationInWindow, from: nil))
+    }
+
+    /// The sides change the width. Everywhere else still drags the card around,
+    /// because the height is derived from the text and is not itself a handle.
+    func horizontalEdge(at point: NSPoint) -> VocabularyCardPanel.HorizontalEdge? {
+        if point.x <= Self.resizeMargin {
+            return .leading
+        }
+
+        if point.x >= bounds.width - Self.resizeMargin {
+            return .trailing
+        }
+
+        return nil
+    }
+
+    private func updateCursor(at point: NSPoint) {
+        let onEdge = resizeEdge != nil || horizontalEdge(at: point) != nil
+        if onEdge {
+            showResizeCursor()
+        } else {
+            hideResizeCursor()
+        }
+    }
+
+    private func showResizeCursor() {
+        guard !isShowingResizeCursor else {
+            return
+        }
+
+        NSCursor.resizeLeftRight.push()
+        isShowingResizeCursor = true
+    }
+
+    private func hideResizeCursor() {
+        guard isShowingResizeCursor else {
+            return
+        }
+
+        NSCursor.pop()
+        isShowingResizeCursor = false
     }
 }
 
 final class VocabularyCardPanel: NSPanel, NSWindowDelegate {
+    enum HorizontalEdge {
+        case leading
+        case trailing
+    }
+
+    static let minimumWidth: CGFloat = 240
+    static let maximumWidth: CGFloat = 800
+
     private var hostingView: MovableHostingView
     private var currentEntry: VocabularyEntry?
     private var wordFont: CardFont
@@ -54,7 +157,8 @@ final class VocabularyCardPanel: NSPanel, NSWindowDelegate {
 
     init() {
         let savedSize = AppSettings.shared.cardWindowSize ?? CGSize(width: 320, height: 112)
-        let size = CGSize(width: max(240, savedSize.width), height: savedSize.height)
+        let width = min(Self.maximumWidth, max(Self.minimumWidth, savedSize.width))
+        let size = CGSize(width: width, height: savedSize.height)
         let initialView = VocabularyCardView(
             entry: nil,
             emptyText: AppSettings.shared.emptyVocabularyText,
@@ -106,6 +210,33 @@ final class VocabularyCardPanel: NSPanel, NSWindowDelegate {
             translationFont: translationFont
         )
 
+        sizeToFitContent()
+    }
+
+    /// Changes the width while holding the opposite edge still, then refits the
+    /// height. `deltaX` is measured from the frame the drag started on, so the
+    /// width does not drift as the pointer moves.
+    ///
+    /// The bottom edge stays put for the same reason a content change does:
+    /// the card sits in a corner, and growing it should not shove it off that
+    /// corner. A taller wrap grows upward.
+    func resizeWidth(by deltaX: CGFloat, from startFrame: NSRect, pinning edge: HorizontalEdge) {
+        let proposed =
+            switch edge {
+            case .trailing: startFrame.width + deltaX
+            case .leading: startFrame.width - deltaX
+            }
+        let width = min(Self.maximumWidth, max(Self.minimumWidth, proposed))
+        let originX =
+            switch edge {
+            case .trailing: startFrame.origin.x
+            case .leading: startFrame.origin.x + startFrame.width - width
+            }
+
+        setFrame(
+            NSRect(x: originX, y: startFrame.origin.y, width: width, height: frame.height),
+            display: true
+        )
         sizeToFitContent()
     }
 

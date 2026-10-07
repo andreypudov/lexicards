@@ -84,4 +84,70 @@ struct CardLayoutTests {
             #expect(panel.frame.width == width)
         }
     }
+
+    /// Dragging a side changes the width and leaves the opposite side where it
+    /// was. The bottom stays put too, so a reflow that changes the height grows
+    /// upward, the same way a longer entry does.
+    @Test
+    func draggingTheTrailingEdgeWidensWithoutMovingTheLeadingEdge() {
+        withIsolatedSettings {
+            let panel = VocabularyCardPanel()
+            panel.setFrameOrigin(NSPoint(x: 400, y: 120))
+            panel.update(entry: VocabularyEntry(original: "猫", translation: "cat"))
+            let start = panel.frame
+
+            panel.resizeWidth(by: 80, from: start, pinning: .trailing)
+
+            #expect(panel.frame.width == start.width + 80)
+            #expect(panel.frame.origin.x == start.origin.x)
+            #expect(panel.frame.origin.y == start.origin.y)
+            #expect(AppSettings.shared.cardWindowSize?.width == panel.frame.width)
+        }
+    }
+
+    @Test
+    func draggingTheLeadingEdgeHoldsTheTrailingEdgeStill() {
+        withIsolatedSettings {
+            let panel = VocabularyCardPanel()
+            panel.setFrameOrigin(NSPoint(x: 400, y: 120))
+            let start = panel.frame
+
+            panel.resizeWidth(by: -60, from: start, pinning: .leading)
+
+            #expect(panel.frame.width == start.width + 60)
+            #expect(panel.frame.maxX == start.maxX)
+            #expect(panel.frame.origin.y == start.origin.y)
+        }
+    }
+
+    @Test
+    func widthStaysInsideTheAllowedRange() {
+        withIsolatedSettings {
+            let panel = VocabularyCardPanel()
+            let start = panel.frame
+
+            panel.resizeWidth(by: -10_000, from: start, pinning: .trailing)
+            #expect(panel.frame.width == VocabularyCardPanel.minimumWidth)
+
+            panel.resizeWidth(by: 10_000, from: start, pinning: .trailing)
+            #expect(panel.frame.width == VocabularyCardPanel.maximumWidth)
+        }
+    }
+
+    @Test
+    func theSideMarginsResizeAndTheMiddleMoves() {
+        let view = MovableHostingView(
+            rootView: VocabularyCardView(
+                entry: nil,
+                emptyText: "LexiCards",
+                wordFont: CardFont(familyName: nil, size: 21, weight: .semibold),
+                translationFont: CardFont(familyName: nil, size: 16, weight: .regular)
+            )
+        )
+        view.frame = NSRect(x: 0, y: 0, width: 320, height: 112)
+
+        #expect(view.horizontalEdge(at: NSPoint(x: 4, y: 40)) == .leading)
+        #expect(view.horizontalEdge(at: NSPoint(x: 316, y: 40)) == .trailing)
+        #expect(view.horizontalEdge(at: NSPoint(x: 160, y: 40)) == nil)
+    }
 }
