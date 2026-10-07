@@ -40,9 +40,9 @@ struct InstantFontUpdateTests {
             )
 
             let hosting = panel.contentView as? MovableHostingView
-            #expect(hosting?.rootView.wordFont.familyName == "Helvetica")
-            #expect(hosting?.rootView.wordFont.size == 30)
-            #expect(hosting?.rootView.translationFont.familyName == "Menlo")
+            #expect(hosting?.rootView.model.wordFont.familyName == "Helvetica")
+            #expect(hosting?.rootView.model.wordFont.size == 30)
+            #expect(hosting?.rootView.model.translationFont.familyName == "Menlo")
         }
     }
 
@@ -80,6 +80,22 @@ struct InstantFontUpdateTests {
             RunLoop.current.run(mode: .eventTracking, before: Date().addingTimeInterval(0.5))
 
             #expect(AppSettings.shared.wordInterval == 21)
+            #expect(notified)
+        }
+    }
+
+    @Test
+    func recallIntervalChangesArePersistedAndAnnounced() {
+        withIsolatedSettings {
+            let model = SettingsModel()
+            var notified = false
+            model.onRecallIntervalChanged = { notified = true }
+
+            model.recallInterval = 15 * 60
+            model.commitRecallInterval()
+            RunLoop.current.run(mode: .eventTracking, before: Date().addingTimeInterval(0.5))
+
+            #expect(AppSettings.shared.recallInterval == 15 * 60)
             #expect(notified)
         }
     }

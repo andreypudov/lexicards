@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import SwiftUI
 import Testing
 
 @testable import LexiCards
@@ -73,6 +74,42 @@ struct CardLayoutTests {
         }
     }
 
+    /// Recall measures the next reading card beside the live one, so the window
+    /// can take the new height without waiting on the view that is still on
+    /// screen. That measurement has to agree with the height the card itself
+    /// settles on.
+    @Test
+    func anOffscreenMeasurementMatchesTheLaidOutCard() {
+        withIsolatedSettings {
+            let panel = VocabularyCardPanel()
+            let entry = VocabularyEntry(
+                original: "とてもながいことばがここにあります",
+                translation: "a considerably longer translation that should wrap onto two lines"
+            )
+            panel.update(entry: entry)
+
+            let probe = NSHostingView(
+                rootView: VocabularyCardView(
+                    entry: entry,
+                    emptyText: AppSettings.shared.emptyVocabularyText,
+                    wordFont: .word(from: AppSettings.shared),
+                    translationFont: .translation(from: AppSettings.shared)
+                )
+            )
+            let window = NSWindow(
+                contentRect: NSRect(
+                    x: -10_000, y: -10_000, width: panel.frame.width, height: 2_000),
+                styleMask: [.borderless],
+                backing: .buffered,
+                defer: false
+            )
+            window.contentView = probe
+            probe.layoutSubtreeIfNeeded()
+
+            #expect(abs(probe.fittingSize.height - panel.frame.height) < 1)
+        }
+    }
+
     @Test
     func widthIsLeftAloneWhenTheHeightIsDerived() {
         withIsolatedSettings {
@@ -136,14 +173,13 @@ struct CardLayoutTests {
 
     @Test
     func theSideMarginsResizeAndTheMiddleMoves() {
-        let view = MovableHostingView(
-            rootView: VocabularyCardView(
-                entry: nil,
-                emptyText: "LexiCards",
-                wordFont: CardFont(familyName: nil, size: 21, weight: .semibold),
-                translationFont: CardFont(familyName: nil, size: 16, weight: .regular)
-            )
+        let model = CardModel(
+            entry: nil,
+            emptyText: "LexiCards",
+            wordFont: CardFont(familyName: nil, size: 21, weight: .semibold),
+            translationFont: CardFont(familyName: nil, size: 16, weight: .regular)
         )
+        let view = MovableHostingView(rootView: FloatingCardView(model: model))
         view.frame = NSRect(x: 0, y: 0, width: 320, height: 112)
 
         #expect(view.horizontalEdge(at: NSPoint(x: 4, y: 40)) == .leading)

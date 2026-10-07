@@ -49,6 +49,34 @@ struct ApplicationSettingsView: View {
                 }
             }
 
+            Section("Recall") {
+                HStack {
+                    Text("Recall every")
+                    Spacer()
+                    Stepper(
+                        value: Binding(
+                            get: { model.recallInterval / 60 },
+                            set: {
+                                model.recallInterval = $0 * 60
+                                model.commitRecallInterval()
+                            }
+                        ),
+                        in: 1...240,
+                        step: 1
+                    ) {
+                        Text(intervalLabel(model.recallInterval))
+                            .monospacedDigit()
+                    }
+                }
+
+                Text(
+                    "Ten words, one at a time. The card pauses, asks for the other side, "
+                        + "then returns to the rotation."
+                )
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            }
+
             Section("Pronunciation") {
                 HStack {
                     Picker("Voice", selection: voiceBinding) {

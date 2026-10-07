@@ -7,16 +7,11 @@ struct VocabularyCardView: View {
     let translationFont: CardFont
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            content
-        }
-        .padding(18)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18))
-        .overlay {
-            RoundedRectangle(cornerRadius: 18)
-                .strokeBorder(.white.opacity(0.2))
-        }
+        content
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(CardFace.inset)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .cardFace()
     }
 
     @ViewBuilder

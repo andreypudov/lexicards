@@ -161,6 +161,7 @@ struct SettingsTests {
         withIsolatedSettings {
             #expect(AppSettings.shared.wordFontSize == 21)
             #expect(AppSettings.shared.translationFontSize == 16)
+            #expect(AppSettings.shared.recallInterval == 30 * 60)
             #expect(CardFont.word(from: AppSettings.shared).size == 21)
             #expect(CardFont.translation(from: AppSettings.shared).size == 16)
         }

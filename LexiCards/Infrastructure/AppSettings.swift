@@ -26,6 +26,7 @@ final class AppSettings {
         static let cardWindowWidth = "cardWindowWidth"
         static let cardWindowHeight = "cardWindowHeight"
         static let cardVisible = "cardVisible"
+        static let recallInterval = "recallInterval"
         static let wordFontName = "wordFontName"
         static let wordFontSize = "wordFontSize"
         static let translationFontName = "translationFontName"
@@ -42,6 +43,7 @@ final class AppSettings {
         static let cardVisible = true
         static let wordFontSize: Double = 21
         static let translationFontSize: Double = 16
+        static let recallInterval: TimeInterval = 30 * 60
     }
 
     var wordInterval: TimeInterval {
@@ -51,6 +53,17 @@ final class AppSettings {
         }
         set {
             defaults.set(newValue, forKey: Keys.wordInterval)
+        }
+    }
+
+    /// How long the reading card runs before a recall session takes its place.
+    var recallInterval: TimeInterval {
+        get {
+            let stored = defaults.double(forKey: Keys.recallInterval)
+            return stored > 0 ? stored : Defaults.recallInterval
+        }
+        set {
+            defaults.set(newValue, forKey: Keys.recallInterval)
         }
     }
 

@@ -20,6 +20,12 @@ The card stays above normal windows and can join all Spaces and full-screen apps
 
 Loaded entries rotate at a regular interval, eight seconds by default. The next entry is selected randomly so repeated exposure does not always follow the order of the source file.
 
+** Recall
+
+Every thirty minutes, by default, the reading card becomes a recall session: ten words drawn at random. The question sits on top, and a question mark holds the line beneath it. *Reveal* replaces that mark with the answer. The two lines use the same fonts as the reading card. *Next* moves to the following word. A progress line at the top shows how far the session has gone. When it ends, the card returns to the rotation.
+
+Switching between reading and recall animates the card's width and height. Near the top of the screen it grows downward; near the bottom it grows upward. Near the left it grows rightward; near the right it grows leftward. For the rest of the session the card keeps that size. Change the interval in Settings, or choose *Recall Now* from the menu bar to start a session immediately.
+
 ** Optional pronunciation
 
 When pronunciation is enabled, each displayed entry is spoken using the language configured by the application. Pronunciation can be toggled independently from card visibility.
@@ -81,9 +87,9 @@ The selected file, card placement, and card visibility are restored automaticall
 
 * Using LexiCards
 
-*Menu bar* — open a vocabulary file, download vocabulary, show or hide the card, enable pronunciation, enable launch at login, or quit.
+*Menu bar* — open a vocabulary file, download vocabulary, show or hide the card, start a recall session, enable pronunciation, enable launch at login, or quit.
 
-*Card* — drag the floating card to place it, or drag either side to change its width. Position, width, and visibility are saved automatically. The card remains available across Spaces and full-screen applications.
+*Card* — drag the floating card to place it, or drag either side to change its width. Position, width, and visibility are saved automatically. During recall, use the button to reveal the other side and move to the next word. The card remains available across Spaces and full-screen applications.
 
 *Vocabulary* — use a UTF-8 CSV file with two columns. Omit the header row; blank or malformed rows are ignored:
 

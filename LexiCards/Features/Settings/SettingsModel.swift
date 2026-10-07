@@ -20,6 +20,7 @@ final class SettingsModel: ObservableObject {
 
     @Published var voiceIdentifier: String?
     @Published var wordInterval: TimeInterval
+    @Published var recallInterval: TimeInterval
     @Published var launchAtLogin: Bool
 
     var onSelectSource: ((VocabularySource) -> Void)?
@@ -28,6 +29,7 @@ final class SettingsModel: ObservableObject {
     var onFontsChanged: (() -> Void)?
     var onVoiceChanged: (() -> Void)?
     var onIntervalChanged: (() -> Void)?
+    var onRecallIntervalChanged: (() -> Void)?
     var onPreviewVoice: (() -> Void)?
     var onSetLaunchAtLogin: ((Bool) -> Void)?
 
@@ -39,6 +41,7 @@ final class SettingsModel: ObservableObject {
         translationFontSize = settings.translationFontSize
         voiceIdentifier = settings.voiceIdentifier
         wordInterval = settings.wordInterval
+        recallInterval = settings.recallInterval
         launchAtLogin = false
     }
 
@@ -84,6 +87,11 @@ final class SettingsModel: ObservableObject {
     func commitInterval() {
         AppSettings.shared.wordInterval = wordInterval
         notifySoon(onIntervalChanged)
+    }
+
+    func commitRecallInterval() {
+        AppSettings.shared.recallInterval = recallInterval
+        notifySoon(onRecallIntervalChanged)
     }
 
     func setLaunchAtLogin(_ isEnabled: Bool) {

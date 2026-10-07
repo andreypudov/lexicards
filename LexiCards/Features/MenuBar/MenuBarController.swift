@@ -4,6 +4,7 @@ final class MenuBarController: NSObject {
     var onOpenVocabulary: (() -> Void)?
     var onOpenSettings: (() -> Void)?
     var onToggleCard: (() -> Void)?
+    var onStartRecall: (() -> Void)?
     var onTogglePronunciation: (() -> Void)?
     var onQuit: (() -> Void)?
 
@@ -67,6 +68,12 @@ final class MenuBarController: NSObject {
 
         showCardMenuItem.target = self
         menu.addItem(showCardMenuItem)
+        menu.addItem(
+            makeItem(
+                title: "Recall Now",
+                action: #selector(startRecall),
+                keyEquivalent: "r"
+            ))
         pronounceCardsMenuItem.target = self
         menu.addItem(pronounceCardsMenuItem)
 
@@ -109,6 +116,10 @@ final class MenuBarController: NSObject {
 
     @objc private func toggleCard() {
         onToggleCard?()
+    }
+
+    @objc private func startRecall() {
+        onStartRecall?()
     }
 
     @objc private func togglePronunciation() {

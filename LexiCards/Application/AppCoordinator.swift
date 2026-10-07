@@ -13,6 +13,7 @@ final class AppCoordinator {
     private let settingsModel = SettingsModel()
     private lazy var settingsWindowController = SettingsWindowController(model: settingsModel)
     private var timer: Timer?
+    private var recallTimer: Timer?
     private var isPronunciationEnabled = AppSettings.shared.pronunciationEnabled
     private var isCardVisible = AppSettings.shared.cardVisible
 
@@ -32,11 +33,14 @@ final class AppCoordinator {
         }
 
         startWordTimer()
+        startRecallTimer()
     }
 
     func stop() {
         timer?.invalidate()
         timer = nil
+        recallTimer?.invalidate()
+        recallTimer = nil
         vocabularyFileAccess.stopAccessing()
     }
 
@@ -49,6 +53,9 @@ final class AppCoordinator {
         }
         menuBarController.onToggleCard = { [weak self] in
             self?.toggleCard()
+        }
+        menuBarController.onStartRecall = { [weak self] in
+            self?.beginRecall(showingCard: true)
         }
         menuBarController.onTogglePronunciation = { [weak self] in
             self?.togglePronunciation()
@@ -81,6 +88,12 @@ final class AppCoordinator {
         settingsModel.onIntervalChanged = { [weak self] in
             self?.startWordTimer()
         }
+        settingsModel.onRecallIntervalChanged = { [weak self] in
+            self?.startRecallTimer()
+        }
+        vocabularyCardPanel.onRecallFinished = { [weak self] in
+            self?.startWordTimer()
+        }
         settingsModel.onPreviewVoice = { [weak self] in
             self?.previewVoice()
         }
@@ -107,6 +120,7 @@ final class AppCoordinator {
         settingsModel.selectedSourceID = AppSettings.shared.selectedVocabularyIdentifier
         settingsModel.entries = VocabularyEntryRow.rows(from: vocabularyController.allEntries)
         settingsModel.wordInterval = AppSettings.shared.wordInterval
+        settingsModel.recallInterval = AppSettings.shared.recallInterval
         settingsModel.launchAtLogin = isLaunchAtLoginEnabled()
     }
 
@@ -158,6 +172,9 @@ final class AppCoordinator {
         }
 
         AppSettings.shared.selectedVocabularyIdentifier = source.id
+        if vocabularyCardPanel.isRecalling {
+            vocabularyCardPanel.cancelRecall()
+        }
         configureLoadedVocabulary()
         refreshSettingsModel()
     }
@@ -212,6 +229,45 @@ final class AppCoordinator {
                 self?.showNextWord()
             }
         }
+    }
+
+    private func startRecallTimer() {
+        recallTimer?.invalidate()
+        let interval = AppSettings.shared.recallInterval
+        recallTimer = Timer.scheduledTimer(
+            withTimeInterval: interval,
+            repeats: true
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.beginRecall(showingCard: false)
+            }
+        }
+    }
+
+    /// Pauses the reading rotation and turns the same card into a recall session.
+    /// The timer leaves a hidden card alone. Recall Now shows the card first.
+    private func beginRecall(showingCard: Bool) {
+        guard !vocabularyCardPanel.isRecalling else {
+            return
+        }
+
+        if !isCardVisible {
+            guard showingCard else {
+                return
+            }
+            isCardVisible = true
+            AppSettings.shared.cardVisible = true
+            menuBarController.setCardVisible(true)
+            vocabularyCardPanel.orderFrontRegardless()
+        }
+
+        guard vocabularyCardPanel.beginRecall(entries: vocabularyController.allEntries) else {
+            return
+        }
+
+        vocabularySpeaker.stop()
+        timer?.invalidate()
+        timer = nil
     }
 
     private func showNextWord() {
