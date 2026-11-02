@@ -240,14 +240,12 @@ struct RecallTests {
 
         panel.orderFrontRegardless()
         panel.cancelRecall()
+        // The call itself must not snap. Where the card is a moment later is
+        // not predictable: a busy run loop delivers the whole animation in one
+        // late tick, which is what this test used to mistake for a jump.
         #expect(abs(panel.frame.height - recall.height) < 1)
 
-        try? await Task.sleep(for: .milliseconds(80))
-        let early = panel.frame.height
-        #expect(early < recall.height - 1)
-        #expect(early > learning.height + span * 0.5)
-
-        try? await Task.sleep(for: .milliseconds(400))
+        await waitUntil { abs(panel.frame.height - learning.height) < 1 }
         #expect(abs(panel.frame.height - learning.height) < 1)
         panel.orderOut(nil)
     }
@@ -485,12 +483,14 @@ struct RecallTests {
         #expect(panel.beginRecall(entries: words(4)))
         panel.orderFrontRegardless()
         panel.cancelRecall()
-
-        try? await Task.sleep(for: .milliseconds(80))
+        // Still on the way back, so the new session starts during the shrink.
+        #expect(abs(panel.frame.height - learning.height) > 1)
         #expect(panel.beginRecall(entries: words(4)))
-        try? await Task.sleep(for: .milliseconds(500))
         panel.cancelRecall()
-        try? await Task.sleep(for: .milliseconds(500))
+        await waitUntil {
+            abs(panel.frame.height - learning.height) < 1
+                && abs(panel.frame.width - learning.width) < 1
+        }
 
         #expect(abs(panel.frame.height - learning.height) < 1)
         #expect(abs(panel.frame.width - learning.width) < 1)
@@ -498,7 +498,7 @@ struct RecallTests {
     }
 
     @Test
-    func pressingTheCardWhileItGrowsFinishesTheGrowth() async {
+    func pressingTheCardWhileItGrowsFinishesTheGrowth() {
         let suiteName = "LexiCardsTests-\(UUID().uuidString)"
         let suite = UserDefaults(suiteName: suiteName)
         let original = AppSettings.shared.defaults
@@ -520,7 +520,7 @@ struct RecallTests {
 
         panel.orderFrontRegardless()
         #expect(panel.beginRecall(entries: words(4)))
-        try? await Task.sleep(for: .milliseconds(80))
+        // The growth has been asked for but not drawn yet.
         #expect(panel.frame.height < recall.height - 1)
 
         panel.rememberRecallPress(at: NSEvent.mouseLocation)
@@ -530,6 +530,18 @@ struct RecallTests {
 
         panel.orderOut(nil)
         panel.cancelRecall()
+    }
+
+    /// Polls until `condition` holds. A fixed sleep is not usable here: under
+    /// load a timer tick arrives late and the whole animation lands at once.
+    private func waitUntil(
+        _ condition: () -> Bool,
+        timeout: TimeInterval = 2
+    ) async {
+        let deadline = Date().addingTimeInterval(timeout)
+        while !condition(), Date() < deadline {
+            try? await Task.sleep(for: .milliseconds(20))
+        }
     }
 
     private func words(_ count: Int) -> [VocabularyEntry] {
