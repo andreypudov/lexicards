@@ -19,7 +19,7 @@ struct FontChangeProbe {
     func changingFontRelayoutsWithoutCrashing() {
         withIsolatedSettings {
             let model = SettingsModel()
-            let controller = NSHostingController(rootView: SettingsView(model: model))
+            let controller = NSHostingController(rootView: ApplicationSettingsView(model: model))
             controller.view.frame = NSRect(x: 0, y: 0, width: 620, height: 460)
             controller.view.layoutSubtreeIfNeeded()
 
@@ -43,7 +43,7 @@ struct FontChangeProbe {
     func cyclingThroughFontFamiliesKeepsTheWindowAlive() {
         withIsolatedSettings {
             let model = SettingsModel()
-            let controller = NSHostingController(rootView: SettingsView(model: model))
+            let controller = NSHostingController(rootView: ApplicationSettingsView(model: model))
             controller.view.frame = NSRect(x: 0, y: 0, width: 620, height: 460)
             controller.view.layoutSubtreeIfNeeded()
 
@@ -67,7 +67,7 @@ struct FontChangeProbe {
     func selectingEachVoiceKeepsTheWindowAlive() {
         withIsolatedSettings {
             let model = SettingsModel()
-            let controller = NSHostingController(rootView: SettingsView(model: model))
+            let controller = NSHostingController(rootView: ApplicationSettingsView(model: model))
             controller.view.frame = NSRect(x: 0, y: 0, width: 620, height: 460)
             controller.view.layoutSubtreeIfNeeded()
 

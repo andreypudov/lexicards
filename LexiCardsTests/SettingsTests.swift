@@ -34,7 +34,7 @@ struct SettingsTests {
             VocabularyEntry(original: "犬", translation: "dog"),
         ])
 
-        let controller = NSHostingController(rootView: SettingsView(model: model))
+        let controller = NSHostingController(rootView: VocabularySettingsView(model: model))
         controller.view.frame = NSRect(x: 0, y: 0, width: 620, height: 460)
         controller.view.layoutSubtreeIfNeeded()
 
@@ -109,11 +109,12 @@ struct SettingsTests {
             for tab in SettingsTab.allCases {
                 model.selectedTab = tab
 
-                let controller = NSHostingController(rootView: SettingsView(model: model))
+                let controller = SettingsTabViewController(model: model)
                 controller.view.frame = NSRect(x: 0, y: 0, width: 620, height: 460)
                 controller.view.layoutSubtreeIfNeeded()
 
                 #expect(model.selectedTab == tab)
+                #expect(SettingsTab.allCases[controller.selectedTabViewItemIndex] == tab)
                 #expect(controller.view.subviews.isEmpty == false)
             }
         }
@@ -154,6 +155,17 @@ struct SettingsTests {
 
         #expect(titles == ["Vocabulary", "Application", "About"])
         #expect(Set(symbols).count == symbols.count)
+    }
+
+    /// A symbol name that does not resolve leaves a toolbar item with no icon,
+    /// and nothing else would report it.
+    @Test
+    func everyTabHasAToolbarItemWithAnIcon() {
+        let controller = SettingsTabViewController(model: SettingsModel())
+
+        #expect(controller.tabStyle == .toolbar)
+        #expect(controller.tabViewItems.map(\.label) == SettingsTab.allCases.map(\.title))
+        #expect(controller.tabViewItems.allSatisfy { $0.image != nil })
     }
 
     @Test

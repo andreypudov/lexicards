@@ -40,17 +40,20 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     private static let defaultContentSize = NSSize(width: 620, height: 460)
 
     private func makeWindow() -> NSWindow {
-        let hostingController = NSHostingController(rootView: SettingsView(model: model))
+        let tabViewController = SettingsTabViewController(model: model)
 
-        // A hosting controller has no size until SwiftUI lays out, so a window
-        // built straight from it starts at 1x32. Centring something that small
-        // puts it near the top of the screen, and it then grows downward from
-        // that top edge — which is why settings always opened at the very top.
-        hostingController.view.setFrameSize(Self.defaultContentSize)
+        // A view controller's view has no useful size until it lays out, so a
+        // window built straight from it starts at 1x32. Centring something that
+        // small puts it near the top of the screen, and it then grows downward
+        // from that top edge — which is why settings always opened at the very
+        // top.
+        tabViewController.view.setFrameSize(Self.defaultContentSize)
 
-        let window = NSWindow(contentViewController: hostingController)
-        window.title = "LexiCards Settings"
+        // The title comes from the selected tab, as in the system's own settings.
+        let window = NSWindow(contentViewController: tabViewController)
         window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
+        window.toolbarStyle = .preference
+        window.contentMinSize = Self.defaultContentSize
         window.isReleasedWhenClosed = false
         window.delegate = self
         window.setContentSize(Self.defaultContentSize)

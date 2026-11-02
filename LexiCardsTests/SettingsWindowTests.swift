@@ -85,6 +85,62 @@ struct SettingsWindowTests {
         window.close()
     }
 
+    /// Both menu commands reuse the open window, so a tab named by the model has
+    /// to reach it, and a tab the user picks has to reach the model.
+    @Test
+    func theModelAndTheWindowAgreeOnTheSelectedTab() {
+        clearSavedFrame()
+        defer { clearSavedFrame() }
+
+        let model = SettingsModel()
+        model.selectedTab = .application
+        let controller = SettingsWindowController(model: model)
+        controller.show()
+        defer { controller.window?.close() }
+
+        guard let tabs = controller.window?.contentViewController as? NSTabViewController else {
+            Issue.record("the window does not show the settings tabs")
+            return
+        }
+
+        #expect(tabs.selectedTabViewItemIndex == 1)
+        #expect(controller.window?.title == "Application")
+
+        model.selectedTab = .about
+        #expect(tabs.selectedTabViewItemIndex == 2)
+        #expect(controller.window?.title == "About")
+
+        tabs.selectedTabViewItemIndex = 0
+        #expect(model.selectedTab == .vocabulary)
+    }
+
+    /// The window's size belongs to the user: a tab with little in it must not
+    /// shrink the window, nor one with a lot grow it.
+    @Test
+    func switchingTabsLeavesTheWindowWhereTheUserPutIt() {
+        clearSavedFrame()
+        defer { clearSavedFrame() }
+
+        let model = SettingsModel()
+        let controller = SettingsWindowController(model: model)
+        controller.show()
+        defer { controller.window?.close() }
+
+        guard let window = controller.window else {
+            Issue.record("show() did not create a window")
+            return
+        }
+
+        let chosen = NSRect(x: 240, y: 160, width: 720, height: 560)
+        window.setFrame(chosen, display: false)
+
+        for tab in SettingsTab.allCases {
+            model.selectedTab = tab
+            RunLoop.main.run(until: Date().addingTimeInterval(0.4))
+            #expect(window.frame == chosen, "selecting \(tab) changed the window frame")
+        }
+    }
+
     private func clearSavedFrame() {
         UserDefaults.standard.removeObject(forKey: Self.autosaveKey)
         NSWindow.removeFrame(usingName: NSWindow.FrameAutosaveName("LexiCardsSettingsWindow"))

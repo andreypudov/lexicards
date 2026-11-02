@@ -80,7 +80,7 @@ docs/                   This documentation
 
 ** Settings
 
-=SettingsWindowController= hosts =SettingsView=, which has the Vocabulary, Application, and About tabs. =SettingsModel= holds the published values, saves changes to =AppSettings=, and tells the coordinator through closures.
+=SettingsWindowController= hosts =SettingsTabViewController=, which shows the Vocabulary, Application, and About tabs as toolbar items. =SettingsModel= holds the published values, saves changes to =AppSettings=, and tells the coordinator through closures.
 
 ** Infrastructure
 
