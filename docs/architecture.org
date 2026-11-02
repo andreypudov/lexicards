@@ -1,0 +1,154 @@
+#+TITLE: LexiCards Architecture
+#+OPTIONS: toc:2
+
+* Overview
+
+LexiCards is a native macOS menu bar app written in Swift, using AppKit for windows and the status item, and SwiftUI for view content. It has no third-party dependencies and no network code. It runs sandboxed, as a UI-element app with no Dock icon.
+
+=AppCoordinator= sits at the center. Features don't know about each other: each exposes closures, and the coordinator connects them.
+
+#+begin_example
+LexiCardsApp -> AppDelegate -> AppCoordinator
+                                     |
+      +--------------+---------------+--------------+----------------+
+      |              |               |              |                |
+ MenuBar        Card panel       Vocabulary      Speaker          Settings
+ Controller     + CardModel      services                         window + model
+                + SwiftUI views
+                                     |
+                                AppSettings (UserDefaults)
+#+end_example
+
+* Source layout
+
+#+begin_example
+LexiCards/
+  Application/          Entry point, app delegate, coordinator
+  Features/
+    Card/               Floating panel, card views, recall session, geometry
+    MenuBar/            Status item and menu
+    Settings/           Settings window, tabs, and view model
+    Vocabulary/
+      Models/           VocabularyEntry, VocabularySource
+      Services/         Loading, library, file access, selection, speech
+  Infrastructure/       AppSettings, AppLog, AppInfo
+  Resources/
+    Vocabularies/       Built-in CSV files
+LexiCardsTests/         Swift Testing suite
+Assets/                 Source artwork
+docs/                   This documentation
+#+end_example
+
+* Components
+
+** Application
+
+- =LexiCardsApp= is the SwiftUI entry point, and adapts =AppDelegate=. Its only scene is an empty =Settings= scene, because the app's windows are managed by hand.
+- =AppDelegate= starts and stops the coordinator.
+- =AppCoordinator= owns every long-lived object, connects their callbacks, and runs the rotation and recall timers. App-wide rules live here, such as pausing the rotation during a session.
+
+** Card
+
+| Type                  | Responsibility                                                                     |
+|-----------------------+------------------------------------------------------------------------------------|
+| =VocabularyCardPanel= | The window: frame animation, geometry persistence, recall start and end, hover fade |
+| =MovableHostingView=  | Hosts the SwiftUI content; handles dragging and edge resizing                      |
+| =CardModel=           | Observable state shared by the views; the buttons talk to this                     |
+| =FloatingCardView=    | Stacks the reading and recall faces and crossfades between them                    |
+| =VocabularyCardView=  | The reading face                                                                   |
+| =RecallCardView=      | The recall face                                                                    |
+| =RecallSession=       | Value type for a session: the prompts, the position, and whether it is revealed    |
+| =CardFace=            | Shared inset, and the =NSVisualEffectView= HUD material behind each face           |
+| =CardGeometry=        | Pure frame calculations: which edges stay fixed, and keeping the card on screen    |
+| =CardMotion=          | Eased interpolation between two frames                                             |
+| =CardHoverFade=       | Pure state machine that decides when the card fades                                |
+| =CardFont=            | Resolves font settings into SwiftUI fonts and line heights                         |
+
+** Menu bar
+
+=MenuBarController= creates the =NSStatusItem= and its menu. It reports actions through closures and has no knowledge of what they do.
+
+** Vocabulary
+
+| Type                   | Responsibility                                                        |
+|------------------------+-----------------------------------------------------------------------|
+| =VocabularyLibrary=    | Lists what is available: bundled CSV files plus the user's bookmarks  |
+| =VocabularyFileAccess= | Opens files, including security-scoped access and bookmark restoration |
+| =VocabularyLoader=     | Parses CSV text into entries                                          |
+| =VocabularyController= | Holds the loaded entries and chooses the next random one              |
+| =VocabularySpeaker=    | Detects languages, chooses voices, and speaks through =AVSpeechSynthesizer= |
+
+** Settings
+
+=SettingsWindowController= hosts =SettingsView=, which has the Vocabulary, Application, and About tabs. =SettingsModel= holds the published values, saves changes to =AppSettings=, and tells the coordinator through closures.
+
+** Infrastructure
+
+- =AppSettings= is the only code that touches =UserDefaults=. New persisted values belong here.
+- =AppLog= holds the =os.Logger= instances. The app signals failure with a beep, and every beep is paired with a log entry that gives the cause.
+- =AppInfo= provides version details for the About tab.
+
+* Key flows
+
+** Launch
+
+1. =AppDelegate= calls =AppCoordinator.start()=.
+2. The coordinator connects the menu and settings callbacks, and restores the card's position.
+3. It restores a vocabulary, trying in order: the selected source, the last-opened file, and the first built-in list.
+4. It shows the card if it was visible, and starts both timers.
+
+** Rotation
+
+The word timer fires, =VocabularyController= chooses an entry, and the panel updates. If speech is on, =VocabularySpeaker= speaks the entry.
+
+** Recall session
+
+1. The recall timer or the menu calls =beginRecall=. The timer leaves a hidden card alone, while the menu shows it for that session.
+2. =VocabularyCardPanel= creates a =RecallSession=, measures the size it needs, and animates to that size while the faces crossfade.
+3. The coordinator stops both timers, and the menu item becomes *End Recall*.
+4. The buttons call =CardModel=, which updates the session and reports each side as it comes into view, so speech follows what is on screen.
+5. Finishing and cancelling share one path through =endRecall=: the card shrinks back, and =recallDidFinish= stops speech, hides a borrowed card, restores the menu item, and restarts the timers. This restart is why the interval counts from the end of a session.
+
+** Changing a setting
+
+A control calls =SettingsModel=, which saves to =AppSettings= immediately and notifies the coordinator on the next run loop turn. The delay matters for two reasons: bindings fire in the middle of a SwiftUI view update, and a picker's selection arrives while its menu is tracking. Scheduling in the common run loop modes means the card repaints immediately, rather than at the next timer tick.
+
+* Design decisions
+
+** A titled window with a hidden title bar
+
+The card is an =NSPanel= with a titled style mask rather than a borderless one, so macOS supplies its corners and shadow and they match other windows. There is no public API for the window corner radius, so this avoids hard-coding one.
+
+This has three consequences, which the panel handles:
+
+- The title bar view is hidden so that it can't sit on top of the card's top row. It is reached through the close button's parent views, which is undocumented structure, and =theTitleBarLeavesTheCloseButtonReachable= tests the result.
+- The bar's reserved safe area is ignored. =NSHostingView.fittingSize= still includes it, so height is measured with separate probe views.
+- =constrainFrameRect= is overridden, because titled windows are otherwise kept below the menu bar.
+
+** The HUD material rather than Liquid Glass
+
+=SwiftUI.glassEffect= was tried first. On this small floating card it looked flat and made text harder to read, so the card uses =NSVisualEffectView= with the =hudWindow= material. The material stays active even when the window isn't key, because the card rarely is, and it passes clicks through to =MovableHostingView=.
+
+** Non-activating window
+
+The panel never pulls the app forward, so a recall session or a click doesn't interrupt typing elsewhere. It can only become key during a session.
+
+** Hand-written frame animation
+
+The window animates with its own timer rather than the AppKit window animator, which drops frames while another app is active, as it usually is here. The hover fade steps its opacity on a timer for the same reason.
+
+** One view tree for both faces
+
+The reading and recall faces share one window and crossfade. The recall face stays in the tree until the window has shrunk (=displayedRecall=), so that removing it doesn't collapse the window mid-animation.
+
+** Bookmarks for user files
+
+The app sandbox only grants read access to files the user selects, so reaching them again after a relaunch takes security-scoped bookmarks. =VocabularyLibrary= stores one per added file.
+
+* Testing
+
+Tests use Swift Testing and run inside the app. Pure types such as =RecallSession=, =CardGeometry=, =CardHoverFade=, and =VocabularyLoader= are the easiest to cover, which is one reason logic is kept in them. Tests that need settings use =withIsolatedSettings=, which swaps in a temporary =UserDefaults= suite.
+
+Synthetic events sent with =NSWindow.sendEvent= can drag the card, but can't press SwiftUI buttons, so tests check that a button is reachable with a hit test instead.
+
+See [[file:../DEVELOPMENT.org][DEVELOPMENT.org]] for how to run them.

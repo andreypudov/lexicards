@@ -1,0 +1,132 @@
+#+TITLE: LexiCards User Guide
+#+OPTIONS: toc:2
+
+* The menu bar
+
+LexiCards has no Dock icon or main window. Everything starts from its icon in the menu bar:
+
+| Item                   | What it does                                                                |
+|------------------------+-----------------------------------------------------------------------------|
+| *Vocabulary*           | Opens Settings on the Vocabulary tab                                        |
+| *Show Card*            | Shows or hides the card; the choice is remembered                           |
+| *Recall Now*           | Starts a recall session; becomes *End Recall* while a session is running    |
+| *Pronounce Cards*      | Turns speech on or off; off by default                                      |
+| *Settings…*            | Opens Settings on the Application tab                                       |
+| *Quit LexiCards*       | Quits the app                                                               |
+
+* The card
+
+The card floats above other windows and stays available across Spaces and full-screen apps. It starts near the lower-right corner of the screen, and its position, width, and visibility are remembered between launches.
+
+- *Move it:* drag anywhere on the card.
+- *Resize it:* drag the left or right side. Width ranges from 240 to 800 points, and the height follows the text.
+- *Style it:* choose a font and size for each line in Settings.
+
+** Fading under the pointer
+
+By default, the card fades when the pointer rests on it, and clicks pass through to whatever is underneath. Hold *Option* to bring it back so you can move, resize, or click it. You can turn this off in Settings. A recall session doesn't start fading, but a card that was already faded when the session began stays faded until the pointer leaves it.
+
+* Rotation
+
+The card shows a new random entry every eight seconds by default, and never repeats the entry already on screen. You can set the interval from 2 to 300 seconds in Settings. Rotation pauses during a recall session.
+
+* Recall
+
+A recall session turns the card into a short test of up to ten entries, drawn at random without repeats. Each card asks for either the translation or the original, chosen at random.
+
+1. The question appears, with a question mark in place of the answer.
+2. Press *Reveal* to show the answer.
+3. Press *Next* to move on. The counter at the top shows your progress.
+
+The card returns to the rotation after the last word. The card changes size when a session starts and ends, growing away from the nearest screen edges and keeping that size during the session.
+
+Answers aren't scored or recorded, and entries are drawn at random rather than by what you know.
+
+** Starting a session
+
+- *Automatically:* every 30 minutes by default. You can set the interval from 1 to 240 minutes, or turn off *Start recall automatically* in Settings. The interval counts from the end of the previous session. Automatic sessions don't appear while the card is hidden.
+- *On demand:* choose *Recall Now* from the menu. If the card is hidden, it appears for that session only.
+
+** Ending a session early
+
+Press the *×* on the card, or choose *End Recall* from the menu. The next automatic session then comes a full interval later. Hiding the card or changing to another vocabulary also ends the session.
+
+* Pronunciation
+
+*Pronounce Cards* in the menu turns speech on and off. Settings then control what is spoken:
+
+- *Speak cards in the rotation:* speaks each new card.
+- *Speak cards during recall:* speaks each side as it appears, so an answer is never read out before you reveal it.
+- *Speak:* chooses *Word only* or *Word and translation*.
+- *Voice:* *Automatic* picks voices from the languages detected in the vocabulary. Choosing a specific voice uses it for both sides, and *Try* plays a sample.
+
+The speaker button on a recall card works whenever you press it, even with speech turned off. It pronounces the original once that is on screen, and otherwise the translation, so it can't give away a hidden answer.
+
+* Vocabularies
+
+The Vocabulary tab in Settings lists the available vocabularies and shows the entries in the selected one.
+
+- *Built-in:* the app ships with two Genki I lists and starts on the first one.
+- *Added:* press *Add CSV…* to add your own file, and *Remove* to take it off the list. Removing doesn't delete the file.
+
+LexiCards reads your file in place rather than copying it, and reloads it from there at launch. A file with no usable rows isn't added.
+
+** CSV format
+
+- UTF-8 text with one entry per line
+- Original in the first column, translation in the second
+- No header row, because a header would be treated as an entry
+- Blank lines and lines without a comma are ignored
+- Columns after the second are ignored
+- Spaces around each value are trimmed
+
+#+begin_example
+猫,cat
+犬,dog
+水,water
+#+end_example
+
+* Settings reference
+
+** Application tab
+
+| Section       | Setting                                   | Default     |
+|---------------+-------------------------------------------+-------------|
+| Card          | Word font and size                        | System, 21 pt |
+| Card          | Translation font and size                 | System, 16 pt |
+| Card          | Fade when the pointer rests on the card   | On          |
+| Rotation      | Show each card for                        | 8 seconds   |
+| Recall        | Start recall automatically                | On          |
+| Recall        | Recall every                              | 30 minutes  |
+| Pronunciation | Speak cards in the rotation               | On          |
+| Pronunciation | Speak cards during recall                 | On          |
+| Pronunciation | Speak                                     | Word only   |
+| Pronunciation | Voice                                     | Automatic   |
+| General       | Start LexiCards at login                  | Off         |
+
+The two pronunciation switches only take effect while *Pronounce Cards* is on in the menu.
+
+* Limitations
+
+- Commas can't appear inside a value, because quoted CSV fields aren't supported.
+- Vocabularies can't be edited in the app. The entry table is read-only.
+- Only one vocabulary is active at a time.
+- Recall doesn't track progress or schedule entries by how well you know them.
+
+* Troubleshooting
+
+** macOS blocks the first launch
+
+Releases are self-signed and not notarized. See [[file:../README.org][the README]] for how to allow the app.
+
+** The card ignores clicks
+
+It has probably faded under the pointer. Hold *Option*, or turn off fading in Settings.
+
+** The app beeps
+
+A beep means something failed, such as a file that couldn't be read. The reason is in the system log:
+
+#+begin_src sh
+log stream --predicate 'subsystem == "com.andreypudov.LexiCards"'
+#+end_src

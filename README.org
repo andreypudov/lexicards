@@ -4,42 +4,25 @@
 
 [[./Assets/Icon.png]]
 
-LexiCards keeps vocabulary visible while you work. It lives in the menu bar and displays a small floating card with a rotating sequence of words and their translations, without opening a regular application window or interrupting your workflow.
+LexiCards keeps vocabulary in view while you work. It runs in the menu bar and shows a small floating card that rotates through words and their translations, with short recall sessions to test what you remember.
 
 * Features
 
-** Menu bar application
-
-LexiCards runs as a menu bar application with no Dock icon. The status menu carries vocabulary loading, card visibility, pronunciation, launch-at-login, and quit controls.
-
-** Ambient floating card
-
-The card stays above normal windows and can join all Spaces and full-screen apps. It starts near the lower-right corner and can be dragged anywhere. Drag either side to change its width; the height follows the text. Position, width, and whether it was hidden are remembered between launches.
-
-** Automatic cycling
-
-Loaded entries rotate at a regular interval, eight seconds by default. The next entry is selected randomly so repeated exposure does not always follow the order of the source file.
-
-** Recall
-
-Every thirty minutes, by default, the reading card becomes a recall session: ten words drawn at random. The question sits on top, and a question mark holds the line beneath it. *Reveal* replaces that mark with the answer. The two lines use the same fonts as the reading card. *Next* moves to the following word. A counter at the top shows how far the session has gone, between the *×* and the speaker button. The speaker pronounces the word on the card: the original once it is on screen, otherwise the translation, so it never gives away a hidden answer. When it ends, the card returns to the rotation. To leave early, press the *×* on the card or choose *End Recall* from the menu bar; the next session then comes a full interval later.
-
-Switching between reading and recall animates the card's width and height. Near the top of the screen it grows downward; near the bottom it grows upward. Near the left it grows rightward; near the right it grows leftward. For the rest of the session the card keeps that size. Change the interval in Settings, or turn off *Start recall automatically* if you do not want sessions to start on their own. Either way, *Recall Now* in the menu bar starts a session immediately.
-
-** Optional pronunciation
-
-When pronunciation is enabled, each displayed entry is spoken using the language configured by the application. Pronunciation can be toggled independently from card visibility.
+- *Floating card:* stays above other windows, across Spaces and full-screen apps.
+- *Automatic rotation:* shows a random word every eight seconds by default.
+- *Recall sessions:* tests you on up to ten words, on a schedule or on demand.
+- *Pronunciation:* speaks words with the system voices, with automatic language detection.
+- *Your own vocabulary:* use the built-in lists or add any two-column CSV file.
+- *Stays out of the way:* has no Dock icon, and fades when the pointer rests on the card.
 
 * Requirements
 
-- macOS *13.5* or later
-- Xcode *26* or later to build from source
+- macOS 13.5 or later
+- Xcode 26 or later, to build from source
 
 * Installation
 
 ** Homebrew (recommended)
-
-Install the latest release with Homebrew:
 
 #+begin_src sh
 brew tap andreypudov/lexicards
@@ -47,19 +30,13 @@ brew trust andreypudov/lexicards
 brew install --cask lexicards
 #+end_src
 
-Upgrade later with =brew update && brew upgrade --cask lexicards=.
+To upgrade later, run =brew update && brew upgrade --cask lexicards=.
 
-LexiCards is self-signed and unnotarized, so macOS may block first launch.
-Allow it in System Settings → Privacy & Security, or clear the quarantine flag:
+** Prebuilt release
 
-#+begin_src sh
-xattr -dr com.apple.quarantine /Applications/LexiCards.app
-#+end_src
+Download the latest =LexiCards-x.y.zip= from the [[https://github.com/AndreyPudov/lexicards/releases][Releases page]], unzip it, and move =LexiCards.app= to =/Applications=.
 
 ** Build from source
-
-Requires Xcode 26 or later. Locally built applications are not quarantined, so
-LexiCards launches with no Gatekeeper warnings:
 
 #+begin_src sh
 git clone https://github.com/AndreyPudov/lexicards.git
@@ -67,67 +44,36 @@ cd lexicards
 make install
 #+end_src
 
-This builds a Release copy and installs it to =/Applications=.
+** First launch of a downloaded copy
 
-For development, open =LexiCards.xcodeproj= in Xcode and press Run.
+Releases are self-signed and not notarized, so macOS may block the first launch of a copy installed with Homebrew or downloaded from the Releases page. Allow it in *System Settings > Privacy & Security*, or clear the quarantine flag:
 
-** Prebuilt binary
+#+begin_src sh
+xattr -dr com.apple.quarantine /Applications/LexiCards.app
+#+end_src
 
-Download the latest =LexiCards-x.y.zip= from the *Releases* page, unzip, and move
-=LexiCards.app= to =/Applications=, then clear the quarantine flag as above.
+Copies you build yourself are not affected.
 
-* First launch
+* Getting started
 
-1. Launch *LexiCards*. Its control appears in the menu bar and a floating card appears near the lower-right corner.
-2. Choose *Open Vocabulary* from the menu bar item and select a CSV file.
-3. Use *Show Card* to hide or reveal the card without stopping the vocabulary timer.
-4. Enable *Pronounce Cards* when spoken reinforcement is useful.
+1. Launch LexiCards. A card appears near the lower-right corner of the screen, showing a built-in vocabulary.
+2. Drag the card to where you want it, or drag either side to change its width.
+3. Open the LexiCards menu in the menu bar and choose *Vocabulary* to pick another list or add your own.
+4. Choose *Recall Now* to try a session.
 
-The selected file, card placement, and card visibility are restored automatically on subsequent launches.
-
-* Using LexiCards
-
-*Menu bar* — open a vocabulary file, download vocabulary, show or hide the card, start a recall session, enable pronunciation, enable launch at login, or quit.
-
-*Card* — drag the floating card to place it, or drag either side to change its width. Position, width, and visibility are saved automatically. During recall, use the button to reveal the other side and move to the next word, or the *×* to end the session. The card remains available across Spaces and full-screen applications.
-
-*Vocabulary* — use a UTF-8 CSV file with two columns. Omit the header row; blank or malformed rows are ignored:
+To use your own words, create a UTF-8 CSV file with the original in the first column and the translation in the second, without a header row:
 
 #+begin_example
 猫,cat
 犬,dog
 水,water
-空,sky
 #+end_example
 
-The repository includes these example vocabularies:
+* Documentation
 
-- [[./Vocabularies/Genki I/01-new-friends.csv][Genki I - 01 New Friends]]
-- [[./Vocabularies/Genki I/02-shopping.csv][Genki I - 02 Shopping]]
-
-* File format
-
-- Two comma-separated columns: original and translation
-- UTF-8 encoded text
-- Do not include a header row; it is currently treated as a vocabulary pair
-- One vocabulary pair per row
-- Commas inside fields are not currently quoted or escaped
-
-* Limitations
-
-- CSV parsing currently treats commas as column separators and does not support quoted fields.
-- Vocabulary cannot yet be edited inside the application.
-- The current vocabulary library is selected one file at a time.
-
-* Development
-
-Architecture notes, build and test instructions are in [[file:DEVELOPMENT.org][DEVELOPMENT.org]].
-
-#+begin_src sh
-make build   # build the Release configuration
-make test    # run the unit test suite
-make release # build and package a distributable zip
-#+end_src
+- [[file:docs/usage.org][User guide]]: every feature, setting, and limitation
+- [[file:docs/architecture.org][Architecture]]: how the app is structured and why
+- [[file:DEVELOPMENT.org][Development]]: building, testing, and contributing
 
 * License
 
