@@ -471,6 +471,28 @@ struct RecallTests {
         }
     }
 
+    /// Clicking a recall button makes the card key. If it stays key after the
+    /// session, typing no longer reaches the app the user was working in.
+    @Test
+    func theCardGivesUpKeyStatusWhenTheSessionEnds() {
+        withIsolatedSettings {
+            let panel = VocabularyCardPanel()
+            panel.alphaValue = 0
+            panel.update(entry: VocabularyEntry(original: "猫", translation: "cat"))
+            panel.orderFrontRegardless()
+            defer { panel.orderOut(nil) }
+            #expect(panel.beginRecall(entries: words(2)))
+            panel.makeKey()
+            #expect(panel.isKeyWindow)
+
+            panel.cancelRecall()
+
+            #expect(panel.isKeyWindow == false)
+            #expect(panel.isVisible)
+            #expect(panel.isRecalling == false)
+        }
+    }
+
     /// A press during the shrink would otherwise fight the animation for the
     /// window and measure its drag from a frame on the way somewhere else.
     @Test

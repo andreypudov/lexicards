@@ -670,6 +670,7 @@ final class VocabularyCardPanel: NSPanel, NSWindowDelegate {
         model.recall = nil
         model.recallFaceVisible = false
         onRecallFinished?()
+        giveBackKeyboardFocus()
 
         let savedRect = saved ?? frame
         let measured = measuredLearningHeight(at: savedRect.width)
@@ -694,6 +695,21 @@ final class VocabularyCardPanel: NSPanel, NSWindowDelegate {
             self.model.dismissDisplayedRecall()
             self.adopt(height: .bottom, width: .trailing)
         }
+    }
+
+    /// A click on a recall button makes the card key, and it stays key after the
+    /// session, keeping the keyboard from the app the user was typing in.
+    ///
+    /// Leaving the screen is what returns focus to that app: `resignKey()` only
+    /// reports a change. The card is back in the same turn, so nothing is drawn
+    /// in between, and `orderFrontRegardless` does not make it key again.
+    private func giveBackKeyboardFocus() {
+        guard isKeyWindow, isVisible else {
+            return
+        }
+
+        orderOut(nil)
+        orderFrontRegardless()
     }
 
     private func adopt(height: CardHeightAnchor, width: CardWidthAnchor) {
