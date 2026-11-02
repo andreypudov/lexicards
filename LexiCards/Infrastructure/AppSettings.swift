@@ -31,6 +31,7 @@ final class AppSettings {
         static let cardWindowHeight = "cardWindowHeight"
         static let cardVisible = "cardVisible"
         static let recallInterval = "recallInterval"
+        static let recallTimerEnabled = "recallTimerEnabled"
         static let wordFontName = "wordFontName"
         static let wordFontSize = "wordFontSize"
         static let translationFontName = "translationFontName"
@@ -48,6 +49,7 @@ final class AppSettings {
         static let wordFontSize: Double = 21
         static let translationFontSize: Double = 16
         static let recallInterval: TimeInterval = 30 * 60
+        static let recallTimerEnabled = true
         static let pronounceDuringRotation = true
         static let pronounceDuringRecall = true
         static let pronounceTranslation = false
@@ -73,6 +75,13 @@ final class AppSettings {
         set {
             defaults.set(newValue, forKey: Keys.recallInterval)
         }
+    }
+
+    /// Whether sessions start on their own. Recall Now works either way, and
+    /// `recallInterval` is kept for when the timer is turned back on.
+    var recallTimerEnabled: Bool {
+        get { bool(forKey: Keys.recallTimerEnabled, default: Defaults.recallTimerEnabled) }
+        set { defaults.set(newValue, forKey: Keys.recallTimerEnabled) }
     }
 
     var pronunciationEnabled: Bool {

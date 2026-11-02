@@ -162,8 +162,26 @@ struct SettingsTests {
             #expect(AppSettings.shared.wordFontSize == 21)
             #expect(AppSettings.shared.translationFontSize == 16)
             #expect(AppSettings.shared.recallInterval == 30 * 60)
+            #expect(AppSettings.shared.recallTimerEnabled)
             #expect(CardFont.word(from: AppSettings.shared).size == 21)
             #expect(CardFont.translation(from: AppSettings.shared).size == 16)
+        }
+    }
+
+    @Test
+    func turningOffTheRecallTimerIsSavedAndKeepsTheInterval() {
+        withIsolatedSettings {
+            let model = SettingsModel()
+            model.recallInterval = 10 * 60
+            model.recallTimerEnabled = false
+            model.commitRecallInterval()
+
+            #expect(AppSettings.shared.recallTimerEnabled == false)
+            #expect(AppSettings.shared.recallInterval == 10 * 60)
+
+            let reopened = SettingsModel()
+            #expect(reopened.recallTimerEnabled == false)
+            #expect(reopened.recallInterval == 10 * 60)
         }
     }
 

@@ -68,6 +68,17 @@ struct ApplicationSettingsView: View {
             }
 
             Section("Recall") {
+                Toggle(
+                    "Start recall automatically",
+                    isOn: Binding(
+                        get: { model.recallTimerEnabled },
+                        set: {
+                            model.recallTimerEnabled = $0
+                            model.commitRecallInterval()
+                        }
+                    )
+                )
+
                 HStack {
                     Text("Recall every")
                     Spacer()
@@ -86,10 +97,12 @@ struct ApplicationSettingsView: View {
                             .monospacedDigit()
                     }
                 }
+                .disabled(!model.recallTimerEnabled)
 
                 Text(
                     "Ten words, one at a time. The card pauses, asks for the other side, "
-                        + "then returns to the rotation."
+                        + "then returns to the rotation. Recall Now in the menu bar starts a "
+                        + "session at any time."
                 )
                 .font(.caption)
                 .foregroundStyle(.secondary)

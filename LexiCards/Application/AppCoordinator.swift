@@ -139,6 +139,7 @@ final class AppCoordinator {
         settingsModel.entries = VocabularyEntryRow.rows(from: vocabularyController.allEntries)
         settingsModel.wordInterval = AppSettings.shared.wordInterval
         settingsModel.recallInterval = AppSettings.shared.recallInterval
+        settingsModel.recallTimerEnabled = AppSettings.shared.recallTimerEnabled
         settingsModel.launchAtLogin = isLaunchAtLoginEnabled()
     }
 
@@ -294,7 +295,7 @@ final class AppCoordinator {
     private func startRecallTimer() {
         recallTimer?.invalidate()
         recallTimer = nil
-        guard !vocabularyCardPanel.isRecalling else {
+        guard !vocabularyCardPanel.isRecalling, AppSettings.shared.recallTimerEnabled else {
             return
         }
 

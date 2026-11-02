@@ -25,6 +25,7 @@ final class SettingsModel: ObservableObject {
     @Published var cardFadesOnHover: Bool
     @Published var wordInterval: TimeInterval
     @Published var recallInterval: TimeInterval
+    @Published var recallTimerEnabled: Bool
     @Published var launchAtLogin: Bool
 
     var onSelectSource: ((VocabularySource) -> Void)?
@@ -52,6 +53,7 @@ final class SettingsModel: ObservableObject {
         cardFadesOnHover = settings.cardFadesOnHover
         wordInterval = settings.wordInterval
         recallInterval = settings.recallInterval
+        recallTimerEnabled = settings.recallTimerEnabled
         launchAtLogin = false
     }
 
@@ -119,7 +121,9 @@ final class SettingsModel: ObservableObject {
     }
 
     func commitRecallInterval() {
-        AppSettings.shared.recallInterval = recallInterval
+        let settings = AppSettings.shared
+        settings.recallInterval = recallInterval
+        settings.recallTimerEnabled = recallTimerEnabled
         notifySoon(onRecallIntervalChanged)
     }
 
