@@ -619,6 +619,17 @@ struct RecallTests {
         #expect(ended == 1)
     }
 
+    /// The hosting view drags the card and resizes it, so the material behind
+    /// the text must never be what a click lands on.
+    @Test
+    func theCardMaterialLeavesClicksToTheHostingView() {
+        let view = CardMaterialView(frame: NSRect(x: 0, y: 0, width: 100, height: 100))
+
+        #expect(view.material == .hudWindow)
+        #expect(view.state == .active)
+        #expect(view.hitTest(NSPoint(x: 50, y: 50)) == nil)
+    }
+
     /// Polls until `condition` holds. A fixed sleep is not usable here: under
     /// load a timer tick arrives late and the whole animation lands at once.
     private func waitUntil(
