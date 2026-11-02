@@ -121,6 +121,9 @@ Backups.backupdb
 MobileBackups.trash
 tmbootpicker.efi
 
+# Signing certificates and their private keys
+*.p12
+
 # Build output (xcodebuild's default SYMROOT and `make release` staging)
 build/
 dist/

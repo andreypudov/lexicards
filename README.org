@@ -49,7 +49,7 @@ brew install --cask lexicards
 
 Upgrade later with =brew update && brew upgrade --cask lexicards=.
 
-LexiCards is currently unsigned and unnotarized, so macOS may block first launch.
+LexiCards is self-signed and unnotarized, so macOS may block first launch.
 Allow it in System Settings → Privacy & Security, or clear the quarantine flag:
 
 #+begin_src sh

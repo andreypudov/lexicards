@@ -84,6 +84,11 @@ make release # build and package dist/LexiCards-<version>.zip
 make clean   # remove build/ and dist/
 #+end_src
 
+Pass =SIGN_IDENTITY="LexiCards Release"= to =make build= or =make release= to sign
+with the release certificate. Without it, Xcode signs the build for local use.
+The release workflow imports that certificate from the =SIGNING_CERT_P12= and
+=SIGNING_CERT_PASSWORD= secrets, and fails if the built app is not signed by it.
+
 =make build= produces =build/Release/LexiCards.app=. The zip that =make release=
 writes is named for =CFBundleShortVersionString= in the built bundle, because the
 Homebrew cask derives its download URL from the version.

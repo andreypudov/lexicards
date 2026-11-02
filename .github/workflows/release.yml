@@ -45,8 +45,43 @@ jobs:
             exit 1
           fi
 
+      # A throwaway keychain, so the certificate never lands in the runner's
+      # own. The password only has to live as long as this job.
+      - name: Import signing certificate
+        env:
+          P12: ${{ secrets.SIGNING_CERT_P12 }}
+          P12_PASSWORD: ${{ secrets.SIGNING_CERT_PASSWORD }}
+        run: |
+          keychain="$RUNNER_TEMP/signing.keychain-db"
+          keychain_password=$(openssl rand -base64 32)
+          echo "$P12" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security create-keychain -p "$keychain_password" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$keychain_password" "$keychain"
+          security import "$RUNNER_TEMP/cert.p12" -k "$keychain" -P "$P12_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$keychain_password" "$keychain"
+          security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')
+          rm "$RUNNER_TEMP/cert.p12"
+
       - name: Build and package
-        run: make release
+        run: make release SIGN_IDENTITY="LexiCards Release"
+
+      # These failures would all be silent: an app signed by something else
+      # breaks the identity users already have, an app that lost its
+      # entitlements runs outside the sandbox, and get-task-allow lets a
+      # debugger attach to a released copy.
+      - name: Verify the signature
+        run: |
+          app=build/Release/LexiCards.app
+          codesign --verify --strict "$app"
+          codesign -dv --verbose=2 "$app" 2>&1 | grep -qx "Authority=LexiCards Release" \
+            || { echo "::error::the app is not signed by LexiCards Release"; exit 1; }
+          codesign -d --entitlements - "$app" 2>/dev/null | grep -q "com.apple.security.app-sandbox" \
+            || { echo "::error::the app lost its sandbox entitlement"; exit 1; }
+          if codesign -d --entitlements - "$app" 2>/dev/null | grep -q "com.apple.security.get-task-allow"; then
+            echo "::error::the app allows a debugger to attach"
+            exit 1
+          fi
 
       # The failure this guards against is silent: a runner image whose default
       # Xcode has moved produces a working, correctly versioned app that simply
