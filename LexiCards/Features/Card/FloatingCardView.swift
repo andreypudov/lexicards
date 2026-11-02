@@ -2,33 +2,57 @@ import SwiftUI
 
 /// The learning card and the recall card share one window.
 ///
-/// Switching replaces the face immediately. The window animates its width and
-/// height around that change, which is the transition between the two.
+/// The two faces crossfade while the window changes size. The face sits on the
+/// edges the window is holding still: a card on the bottom of the screen keeps
+/// its bottom edge and grows upward, instead of the whole card sliding away.
 struct FloatingCardView: View {
     @ObservedObject var model: CardModel
 
     var body: some View {
-        if let session = model.recall, let prompt = session.current {
-            RecallCardView(
-                prompt: prompt,
-                isRevealed: session.isRevealed,
-                index: session.index,
-                count: session.prompts.count,
-                wordFont: model.wordFont,
-                translationFont: model.translationFont,
-                onReveal: { model.reveal() },
-                onNext: { model.advance() },
-                onMoveBegan: { model.onMoveBegan?() },
-                onMoveChanged: { model.onMoveChanged?($0) },
-                onMoveEnded: { model.onMoveEnded?() }
-            )
-        } else {
-            VocabularyCardView(
-                entry: model.entry,
-                emptyText: model.emptyText,
-                wordFont: model.wordFont,
-                translationFont: model.translationFont
-            )
+        ZStack(alignment: contentAlignment) {
+            learningCard
+                .opacity(model.recallFaceVisible ? 0 : 1)
+
+            if let session = model.displayedRecall, let prompt = session.current {
+                recallCard(session, prompt: prompt)
+                    .opacity(model.recallFaceVisible ? 1 : 0)
+            }
         }
+        .fixedSize(horizontal: false, vertical: true)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: contentAlignment)
+        .animation(nil, value: contentAlignment)
+        .animation(.easeInOut(duration: CardMotion.duration), value: model.recallFaceVisible)
+    }
+
+    private var learningCard: some View {
+        VocabularyCardView(
+            entry: model.entry,
+            emptyText: model.emptyText,
+            wordFont: model.wordFont,
+            translationFont: model.translationFont
+        )
+    }
+
+    private func recallCard(_ session: RecallSession, prompt: RecallPrompt) -> some View {
+        RecallCardView(
+            prompt: prompt,
+            isRevealed: session.isRevealed,
+            index: session.index,
+            count: session.prompts.count,
+            wordFont: model.wordFont,
+            translationFont: model.translationFont,
+            onReveal: { model.reveal() },
+            onNext: { model.advance() },
+            onMoveBegan: { model.onMoveBegan?() },
+            onMoveChanged: { model.onMoveChanged?() },
+            onMoveEnded: { model.onMoveEnded?() }
+        )
+    }
+
+    private var contentAlignment: Alignment {
+        Alignment(
+            horizontal: model.widthAnchor == .leading ? .leading : .trailing,
+            vertical: model.heightAnchor == .top ? .top : .bottom
+        )
     }
 }

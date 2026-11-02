@@ -35,6 +35,11 @@ final class VocabularyController {
         return entries[index]
     }
 
+    func clear() {
+        entries = []
+        index = -1
+    }
+
     @discardableResult
     func load(from url: URL) -> Bool {
         let loaded = VocabularyLoader.load(from: url)

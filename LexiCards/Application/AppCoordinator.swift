@@ -16,6 +16,9 @@ final class AppCoordinator {
     private var recallTimer: Timer?
     private var isPronunciationEnabled = AppSettings.shared.pronunciationEnabled
     private var isCardVisible = AppSettings.shared.cardVisible
+    /// Recall Now on a hidden card shows it for that one session only. The
+    /// saved visibility and the menu checkmark keep saying "hidden".
+    private var isCardShownForRecall = false
 
     func start() {
         configureMenuBar()
@@ -92,7 +95,7 @@ final class AppCoordinator {
             self?.startRecallTimer()
         }
         vocabularyCardPanel.onRecallFinished = { [weak self] in
-            self?.startWordTimer()
+            self?.recallDidFinish()
         }
         settingsModel.onPreviewVoice = { [weak self] in
             self?.previewVoice()
@@ -162,13 +165,17 @@ final class AppCoordinator {
         return true
     }
 
-    private func selectVocabulary(_ source: VocabularySource) {
+    @discardableResult
+    private func selectVocabulary(_ source: VocabularySource) -> Bool {
         guard vocabularyFileAccess.load(from: source.url, into: vocabularyController) else {
             AppLog.vocabulary.error(
                 "Could not open vocabulary: \(source.name, privacy: .public)"
             )
             NSSound.beep()
-            return
+            // The picker already shows the new choice. Put it back on the
+            // vocabulary the card is still playing.
+            refreshSettingsModel()
+            return false
         }
 
         AppSettings.shared.selectedVocabularyIdentifier = source.id
@@ -177,17 +184,37 @@ final class AppCoordinator {
         }
         configureLoadedVocabulary()
         refreshSettingsModel()
+        return true
     }
 
+    /// Removing the vocabulary that is playing moves the card to another one,
+    /// rather than leaving the removed words rotating.
     private func removeVocabulary(_ source: VocabularySource) {
         guard source.kind == .user else { return }
 
         vocabularyLibrary.removeUserSource(source)
-        if AppSettings.shared.selectedVocabularyIdentifier == source.id {
-            AppSettings.shared.selectedVocabularyIdentifier = nil
+        // Otherwise the next launch falls back to the last-opened file and
+        // adopts the removed vocabulary into the library again.
+        if AppSettings.shared.lastVocabularyPath == source.url.path {
+            AppSettings.shared.lastVocabularyPath = nil
+            AppSettings.shared.lastVocabularyBookmark = nil
         }
 
-        refreshSettingsModel()
+        guard AppSettings.shared.selectedVocabularyIdentifier == source.id else {
+            refreshSettingsModel()
+            return
+        }
+
+        AppSettings.shared.selectedVocabularyIdentifier = nil
+        let replacement = vocabularyLibrary.sources().first { selectVocabulary($0) }
+        if replacement == nil {
+            if vocabularyCardPanel.isRecalling {
+                vocabularyCardPanel.cancelRecall()
+            }
+            vocabularyController.clear()
+            configureLoadedVocabulary()
+            refreshSettingsModel()
+        }
     }
 
     private func openVocabulary() {
@@ -210,88 +237,146 @@ final class AppCoordinator {
             return
         }
 
-        selectVocabulary(source)
+        // A file with no usable rows is not worth keeping in the list.
+        if !selectVocabulary(source) {
+            vocabularyLibrary.removeUserSource(source)
+            refreshSettingsModel()
+        }
     }
 
+    /// The first word of a new vocabulary appears now, and gets a full interval
+    /// before the rotation moves on.
     private func configureLoadedVocabulary() {
         vocabularySpeaker.configureLanguages(entries: vocabularyController.allEntries)
-        showNextWord()
+        showNextWord(inPlace: false)
+        startWordTimer()
     }
 
     // MARK: - Card and rotation
 
+    /// The reading rotation. It stays paused for a whole recall session: a
+    /// word changing, or being spoken, under the exam would give answers away.
     private func startWordTimer() {
-        let interval = AppSettings.shared.wordInterval
-
         timer?.invalidate()
-        timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
+        timer = nil
+        guard !vocabularyCardPanel.isRecalling else {
+            return
+        }
+
+        let interval = AppSettings.shared.wordInterval
+        let timer = Timer(timeInterval: interval, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 self?.showNextWord()
             }
         }
+        timer.tolerance = interval * 0.1
+        RunLoop.main.add(timer, forMode: .common)
+        self.timer = timer
     }
 
+    /// The recall interval counts from the end of the last session, not from
+    /// when it began, so a long session does not bring the next one forward.
     private func startRecallTimer() {
         recallTimer?.invalidate()
+        recallTimer = nil
+        guard !vocabularyCardPanel.isRecalling else {
+            return
+        }
+
         let interval = AppSettings.shared.recallInterval
-        recallTimer = Timer.scheduledTimer(
-            withTimeInterval: interval,
-            repeats: true
-        ) { [weak self] _ in
+        let timer = Timer(timeInterval: interval, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 self?.beginRecall(showingCard: false)
             }
         }
+        timer.tolerance = min(60, interval * 0.1)
+        RunLoop.main.add(timer, forMode: .common)
+        recallTimer = timer
     }
 
     /// Pauses the reading rotation and turns the same card into a recall session.
-    /// The timer leaves a hidden card alone. Recall Now shows the card first.
+    /// The timer leaves a hidden card alone. Recall Now shows a hidden card for
+    /// the length of the session.
     private func beginRecall(showingCard: Bool) {
         guard !vocabularyCardPanel.isRecalling else {
             return
         }
 
-        if !isCardVisible {
+        let showsForSession = !isCardVisible
+        if showsForSession {
             guard showingCard else {
                 return
             }
-            isCardVisible = true
-            AppSettings.shared.cardVisible = true
-            menuBarController.setCardVisible(true)
             vocabularyCardPanel.orderFrontRegardless()
         }
 
         guard vocabularyCardPanel.beginRecall(entries: vocabularyController.allEntries) else {
+            if showsForSession {
+                vocabularyCardPanel.orderOut(nil)
+            }
+            if showingCard {
+                NSSound.beep()
+            }
             return
         }
 
+        isCardShownForRecall = showsForSession
         vocabularySpeaker.stop()
         timer?.invalidate()
         timer = nil
+        recallTimer?.invalidate()
+        recallTimer = nil
     }
 
-    private func showNextWord() {
+    private func recallDidFinish() {
+        if isCardShownForRecall {
+            isCardShownForRecall = false
+            vocabularyCardPanel.orderOut(nil)
+        }
+
+        startWordTimer()
+        startRecallTimer()
+    }
+
+    private func showNextWord(inPlace: Bool = true) {
         vocabularyController.nextRandom()
         let entry = vocabularyController.currentEntry
 
-        vocabularyCardPanel.update(entry: entry)
+        vocabularyCardPanel.update(entry: entry, inPlace: inPlace)
 
-        guard isPronunciationEnabled, let entry else {
+        guard isPronunciationEnabled, isCardVisible, let entry else {
             return
         }
         vocabularySpeaker.speak(entry: entry)
     }
 
     private func toggleCard() {
-        isCardVisible.toggle()
-        AppSettings.shared.cardVisible = isCardVisible
-        menuBarController.setCardVisible(isCardVisible)
-
-        if isCardVisible {
-            vocabularyCardPanel.orderFrontRegardless()
-        } else {
-            vocabularyCardPanel.orderOut(nil)
+        // Choosing Show Card during a session the card was only borrowed for
+        // keeps it on screen afterwards.
+        if isCardShownForRecall {
+            isCardShownForRecall = false
+            setCardVisible(true)
+            return
         }
+
+        setCardVisible(!isCardVisible)
+    }
+
+    private func setCardVisible(_ isVisible: Bool) {
+        isCardVisible = isVisible
+        AppSettings.shared.cardVisible = isVisible
+        menuBarController.setCardVisible(isVisible)
+
+        if isVisible {
+            vocabularyCardPanel.orderFrontRegardless()
+            return
+        }
+
+        vocabularySpeaker.stop()
+        vocabularyCardPanel.orderOut(nil)
+        // A session nobody can see would hold the rotation paused until the
+        // card came back. Hidden first, so it ends without the shrink.
+        vocabularyCardPanel.cancelRecall()
     }
 
     // MARK: - Pronunciation

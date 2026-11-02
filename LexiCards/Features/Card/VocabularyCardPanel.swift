@@ -62,8 +62,12 @@ final class MovableHostingView: NSHostingView<FloatingCardView> {
 
         // Recall buttons have to see the real click. The learning card has
         // nothing to press, so a press there drags the window immediately.
-        if edge == nil, (window as? VocabularyCardPanel)?.isRecalling == true {
+        // The press is remembered in screen coordinates before SwiftUI tracks
+        // it, so a drag that follows keeps the grabbed point under the pointer.
+        if edge == nil, let panel = window as? VocabularyCardPanel, panel.isRecalling {
+            panel.rememberRecallPress(at: screenPoint(of: event, in: window))
             super.mouseDown(with: event)
+            panel.finishRecallPress()
             return
         }
 
@@ -177,8 +181,20 @@ final class VocabularyCardPanel: NSPanel, NSWindowDelegate {
     private var ignoreGeometryPersistence = false
     private var lastFrame: NSRect = .zero
     private var cardDragOrigin: NSPoint?
+    private var cardDragPointer: NSPoint?
+    private var frameAnimation: FrameAnimation?
+    private var frameAnimationID = 0
 
-    /// The coordinator restarts the reading rotation when a session ends.
+    private struct FrameAnimation {
+        let timer: Timer
+        let target: NSRect
+        let persisting: Bool
+        let completion: (() -> Void)?
+    }
+
+    /// The coordinator restarts the schedule when a session ends. It runs after
+    /// the session is cleared but before the card shrinks back, so a card
+    /// shown only for this session can be hidden without animating first.
     var onRecallFinished: (() -> Void)?
 
     var isRecalling: Bool {
@@ -208,6 +224,10 @@ final class VocabularyCardPanel: NSPanel, NSWindowDelegate {
         )
 
         contentView = hostingView
+        // The recall face is taller. Letting the hosting view's maximum size
+        // follow that face makes the window snap down the moment the learning
+        // card returns. The panel animates the frame itself.
+        hostingView.sizingOptions = [.intrinsicContentSize]
         isOpaque = false
         backgroundColor = .clear
         hasShadow = true
@@ -222,23 +242,25 @@ final class VocabularyCardPanel: NSPanel, NSWindowDelegate {
         lastFrame = frame
 
         model.onFinished = { [weak self] in
-            self?.endRecall(animated: true)
-            self?.onRecallFinished?()
+            self?.endRecall()
         }
         model.onMoveBegan = { [weak self] in
             self?.beginCardDrag()
         }
-        model.onMoveChanged = { [weak self] translation in
-            self?.updateCardDrag(translation)
+        model.onMoveChanged = { [weak self] in
+            self?.updateCardDrag()
         }
         model.onMoveEnded = { [weak self] in
             self?.endCardDrag()
         }
     }
 
-    func update(entry: VocabularyEntry?) {
+    /// `inPlace: false` rebuilds the card instead of publishing the word into
+    /// the live view. A vocabulary switch made from a menu needs that: an
+    /// in-place change waits for a default-mode turn to repaint.
+    func update(entry: VocabularyEntry?, inPlace: Bool = true) {
         currentEntry = entry
-        refresh()
+        refresh(allowingInPlaceUpdate: inPlace)
     }
 
     /// Applies new fonts and redraws immediately, so a change made in settings
@@ -251,7 +273,7 @@ final class VocabularyCardPanel: NSPanel, NSWindowDelegate {
         refresh()
     }
 
-    func refresh() {
+    func refresh(allowingInPlaceUpdate: Bool = true) {
         let entryChanged = model.entry != currentEntry
         let appearanceChanged =
             model.emptyText != AppSettings.shared.emptyVocabularyText
@@ -261,7 +283,9 @@ final class VocabularyCardPanel: NSPanel, NSWindowDelegate {
         // updates in place. Fonts still replace it: publishing into the
         // existing view waits a turn, and a change made while a menu is
         // tracking would miss its repaint until the next rotation.
-        let updateInPlace = isVisible && !isRecalling && entryChanged && !appearanceChanged
+        let updateInPlace =
+            allowingInPlaceUpdate && isVisible && !isRecalling && entryChanged
+            && !appearanceChanged
 
         let apply = {
             self.model.entry = self.currentEntry
@@ -385,18 +409,23 @@ final class VocabularyCardPanel: NSPanel, NSWindowDelegate {
             return false
         }
 
+        // The previous session may still be shrinking back. Its target is the
+        // reading frame this session has to remember, not wherever it got to.
+        settleFrameAnimation()
         if let visible = screenVisibleFrame() {
-            heightAnchor = CardHeightAnchor.forCard(midY: frame.midY, screenMidY: visible.midY)
-            widthAnchor = CardWidthAnchor.forCard(midX: frame.midX, screenMidX: visible.midX)
+            adopt(
+                height: CardHeightAnchor.forCard(midY: frame.midY, screenMidY: visible.midY),
+                width: CardWidthAnchor.forCard(midX: frame.midX, screenMidX: visible.midX)
+            )
         } else {
-            heightAnchor = .bottom
-            widthAnchor = .trailing
+            adopt(height: .bottom, width: .trailing)
         }
 
         learningFrame = frame
         saveLearningGeometry = true
         let width = fittedRecallWidth(prompts: session.prompts)
         model.recall = session
+        model.recallFaceVisible = true
 
         guard let prompt = session.current,
             let height = usableHeight(
@@ -425,9 +454,7 @@ final class VocabularyCardPanel: NSPanel, NSWindowDelegate {
             return
         }
 
-        model.recall = nil
-        endRecall(animated: true)
-        onRecallFinished?()
+        endRecall()
     }
 
     /// Changes the width while holding the opposite edge still, then refits the
@@ -491,11 +518,8 @@ final class VocabularyCardPanel: NSPanel, NSWindowDelegate {
     /// Holding the origin — the bottom-left — keeps it resting in the corner it
     /// was placed in, and lets a taller entry grow upward.
     private func sizeToFitContent(fittingHeight measuredHeight: CGFloat? = nil) {
-        if measuredHeight == nil {
-            hostingView.layoutSubtreeIfNeeded()
-        }
-
-        guard let fittingHeight = usableHeight(measuredHeight ?? hostingView.fittingSize.height),
+        let measured = measuredHeight ?? measuredLearningHeight()
+        guard let fittingHeight = usableHeight(measured),
             abs(fittingHeight - frame.height) > 0.5
         else {
             return
@@ -512,51 +536,104 @@ final class VocabularyCardPanel: NSPanel, NSWindowDelegate {
         )
     }
 
-    private func endCardDrag() {
-        cardDragOrigin = nil
-    }
-
-    private func beginCardDrag() {
+    /// Records the window and the pointer where a recall press began.
+    ///
+    /// A click that never becomes a drag leaves these set until tracking
+    /// returns. A drag uses them as the fixed baseline, including the distance
+    /// traveled before the gesture recognized the movement.
+    func rememberRecallPress(at screenPoint: NSPoint) {
+        // A press during the grow would otherwise freeze the card part-way.
+        settleFrameAnimation()
         cardDragOrigin = frame.origin
+        cardDragPointer = screenPoint
     }
 
-    private func updateCardDrag(_ translation: CGSize) {
-        guard let cardDragOrigin else {
+    func finishRecallPress() {
+        cardDragOrigin = nil
+        cardDragPointer = nil
+    }
+
+    /// Moves the recall card so the pressed point stays under `pointer`.
+    ///
+    /// `pointer` is a screen point. Repeating a call with the same point does
+    /// not move the card again: the baseline is the press, not the last frame.
+    func followRecallPointer(_ pointer: NSPoint) {
+        guard let cardDragOrigin, let cardDragPointer else {
             return
         }
 
-        // SwiftUI's drag axis points down; the screen's points up.
         setFrameOrigin(
-            NSPoint(
-                x: cardDragOrigin.x + translation.width,
-                y: cardDragOrigin.y - translation.height
+            CardGeometry.origin(
+                moving: cardDragOrigin,
+                followingPointerFrom: cardDragPointer,
+                to: pointer
             )
         )
     }
 
-    private func endRecall(animated: Bool) {
+    private func endCardDrag() {
+        // Leave the press baseline in place. This gesture can end when the
+        // window moves and a new one can begin before the mouse comes up;
+        // clearing here would abandon the point the user grabbed. Tracking
+        // returns to `finishRecallPress` when the press is actually over.
+    }
+
+    private func beginCardDrag() {
+        guard cardDragPointer == nil else {
+            return
+        }
+
+        rememberRecallPress(at: NSEvent.mouseLocation)
+    }
+
+    private func updateCardDrag() {
+        followRecallPointer(NSEvent.mouseLocation)
+    }
+
+    private func endRecall() {
         let saved = learningFrame
         saveLearningGeometry = false
         learningFrame = nil
-        heightAnchor = .bottom
-        widthAnchor = .trailing
+        // The session is over, but the face stays in the tree until the window
+        // has shrunk. Removing it now collapses the card and the window jumps.
+        model.recall = nil
+        model.recallFaceVisible = false
+        onRecallFinished?()
 
-        let savedWidth = saved?.width ?? frame.width
-        let savedOrigin = saved?.origin ?? frame.origin
-        let measured = measuredLearningHeight(at: savedWidth)
-        let height = usableHeight(measured) ?? saved?.height ?? frame.height
-        let size = CGSize(width: savedWidth, height: height)
-        // The saved origin is the reading card's bottom-left. Measuring the
-        // height again picks up a font change made during the session, and
-        // pinning the bottom keeps that corner where the user left it.
+        let savedRect = saved ?? frame
+        let measured = measuredLearningHeight(at: savedRect.width)
+        let height = usableHeight(measured) ?? savedRect.height
+        let size = CGSize(width: savedRect.width, height: height)
+        // Keep the edges this session grew away from. Measuring the height
+        // again picks up a font change made during the session; the pinned
+        // edges stay where the learning card left them.
         let restored = CardGeometry.frame(
             bySettingSize: size,
-            of: NSRect(origin: savedOrigin, size: size),
-            pinningHeight: .bottom,
-            pinningWidth: .leading,
+            of: savedRect,
+            pinningHeight: heightAnchor,
+            pinningWidth: widthAnchor,
             within: screenVisibleFrame()
         )
-        setCardFrame(restored, animated: animated && isVisible)
+        // A newer session may have started before this shrink finished; its
+        // face and anchors must survive this completion.
+        setCardFrame(restored, animated: true) { [weak self] in
+            guard let self, !self.isRecalling else {
+                return
+            }
+            self.model.dismissDisplayedRecall()
+            self.adopt(height: .bottom, width: .trailing)
+        }
+    }
+
+    private func adopt(height: CardHeightAnchor, width: CardWidthAnchor) {
+        heightAnchor = height
+        widthAnchor = width
+        if model.heightAnchor != height {
+            model.heightAnchor = height
+        }
+        if model.widthAnchor != width {
+            model.widthAnchor = width
+        }
     }
 
     private func frameWithSize(_ size: CGSize) -> NSRect {
@@ -586,40 +663,109 @@ final class VocabularyCardPanel: NSPanel, NSWindowDelegate {
         return rect.width * rect.height
     }
 
-    private func setCardFrame(_ next: NSRect, animated: Bool) {
+    private func setCardFrame(
+        _ next: NSRect,
+        animated: Bool,
+        completion: (() -> Void)? = nil
+    ) {
+        // A running animation is heading somewhere else; it stops where it is
+        // and this one starts from there.
+        stopFrameAnimation()
         let originDelta = hypot(next.origin.x - frame.origin.x, next.origin.y - frame.origin.y)
         let sizeDelta = hypot(next.width - frame.width, next.height - frame.height)
         guard originDelta > 0.5 || sizeDelta > 0.5 else {
+            completion?()
             return
         }
 
         let shouldPersistResult = !saveLearningGeometry
-        if animated && isVisible {
-            ignoreGeometryPersistence = true
-            NSAnimationContext.runAnimationGroup { context in
-                context.duration = CardMotion.duration
-                context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-                self.animator().setFrame(next, display: true)
-            } completionHandler: { [weak self] in
-                Task { @MainActor in
-                    guard let self else { return }
-                    self.lastFrame = self.frame
-                    self.ignoreGeometryPersistence = false
-                    guard shouldPersistResult else { return }
-                    AppSettings.shared.cardWindowOrigin = self.frame.origin
-                    AppSettings.shared.cardWindowSize = self.frame.size
-                }
-            }
+        // A menu-bar app is usually not the active app, and a recall often
+        // starts from the status menu. AppKit's window animator drops those
+        // frames and the card snaps. Stepping the frame ourselves keeps the
+        // resize moving while another app is in front.
+        guard animated, isVisible else {
+            applySettledFrame(next, persisting: shouldPersistResult)
+            completion?()
             return
         }
 
-        if saveLearningGeometry {
+        let start = frame
+        let began = Date()
+        frameAnimationID += 1
+        let animationID = frameAnimationID
+        ignoreGeometryPersistence = true
+        // Added to the main run loop below, so the block always runs on the
+        // main thread.
+        let timer = Timer(timeInterval: 1.0 / 60.0, repeats: true) { [weak self] timer in
+            guard let self else {
+                timer.invalidate()
+                return
+            }
+
+            MainActor.assumeIsolated {
+                self.stepFrameAnimation(animationID, from: start, to: next, began: began)
+            }
+        }
+        frameAnimation = FrameAnimation(
+            timer: timer,
+            target: next,
+            persisting: shouldPersistResult,
+            completion: completion
+        )
+        RunLoop.main.add(timer, forMode: .common)
+    }
+
+    private func stepFrameAnimation(
+        _ animationID: Int, from start: NSRect, to next: NSRect, began: Date
+    ) {
+        guard animationID == frameAnimationID, frameAnimation != nil else {
+            return
+        }
+
+        let raw = min(1, Date().timeIntervalSince(began) / CardMotion.duration)
+        guard raw >= 1 else {
+            setFrame(CardMotion.frame(from: start, to: next, at: raw), display: true)
+            return
+        }
+
+        settleFrameAnimation()
+    }
+
+    /// Ends a running animation on its target frame, as if it had played out.
+    private func settleFrameAnimation() {
+        guard let animation = frameAnimation else {
+            return
+        }
+
+        animation.timer.invalidate()
+        frameAnimation = nil
+        frameAnimationID += 1
+        applySettledFrame(animation.target, persisting: animation.persisting)
+        animation.completion?()
+    }
+
+    private func applySettledFrame(_ next: NSRect, persisting: Bool) {
+        if persisting {
+            ignoreGeometryPersistence = false
+            setFrame(next, display: true)
+        } else {
             withoutPersistingGeometry {
                 setFrame(next, display: true)
             }
-        } else {
-            setFrame(next, display: true)
         }
+        lastFrame = frame
+    }
+
+    /// Stops a running animation where it is. Its completion still runs: the
+    /// end of a session relies on it to drop the recall face.
+    private func stopFrameAnimation() {
+        let animation = frameAnimation
+        animation?.timer.invalidate()
+        frameAnimation = nil
+        frameAnimationID += 1
+        ignoreGeometryPersistence = false
+        lastFrame = frame
+        animation?.completion?()
     }
 
     private func withoutPersistingGeometry(_ body: () -> Void) {

@@ -11,11 +11,27 @@ final class CardModel: ObservableObject {
     @Published var emptyText: String
     @Published var wordFont: CardFont
     @Published var translationFont: CardFont
-    @Published var recall: RecallSession?
+    @Published var recall: RecallSession? {
+        didSet {
+            // Keep the last face after the session ends. Dropping it here would
+            // collapse the window before the shrink back to the learning card.
+            if let recall, recall.current != nil {
+                displayedRecall = recall
+            }
+        }
+    }
+
+    /// The face still drawn while the window animates back to the learning card.
+    @Published var displayedRecall: RecallSession?
+    /// Drives the crossfade. Turns off before `displayedRecall` is cleared.
+    @Published var recallFaceVisible = false
+    /// Edges that stay put while the window animates between faces.
+    @Published var heightAnchor: CardHeightAnchor = .bottom
+    @Published var widthAnchor: CardWidthAnchor = .trailing
 
     var onFinished: (() -> Void)?
     var onMoveBegan: (() -> Void)?
-    var onMoveChanged: ((CGSize) -> Void)?
+    var onMoveChanged: (() -> Void)?
     var onMoveEnded: (() -> Void)?
 
     var isRecalling: Bool {
@@ -32,6 +48,15 @@ final class CardModel: ObservableObject {
         self.emptyText = emptyText
         self.wordFont = wordFont
         self.translationFont = translationFont
+    }
+
+    /// Drops the face kept up for the return animation, once the window is
+    /// back at the learning size.
+    func dismissDisplayedRecall() {
+        guard recall == nil else {
+            return
+        }
+        displayedRecall = nil
     }
 
     func reveal() {

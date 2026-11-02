@@ -15,10 +15,14 @@ struct RecallCardView: View {
     var onReveal: () -> Void = {}
     var onNext: () -> Void = {}
     var onMoveBegan: () -> Void = {}
-    var onMoveChanged: (CGSize) -> Void = { _ in }
+    var onMoveChanged: () -> Void = {}
     var onMoveEnded: () -> Void = {}
 
     @State private var moveStarted = false
+    /// Survives the view update that starts a drag. A press that moved the card
+    /// must not also activate Reveal or Next: the card follows the pointer, so
+    /// the button is still under it when the mouse comes up.
+    @State private var clickGate = ClickGate()
 
     var body: some View {
         VStack(spacing: 16) {
@@ -44,6 +48,10 @@ struct RecallCardView: View {
             }
 
             Button(isRevealed ? "Next" : "Reveal") {
+                guard !clickGate.dragged else {
+                    return
+                }
+
                 if isRevealed {
                     onNext()
                 } else {
@@ -63,19 +71,33 @@ struct RecallCardView: View {
 
     /// A short press stays a button click. Movement past that drags the card,
     /// the same way the reading card moves when it has nothing to press.
+    ///
+    /// The gesture only decides that a drag has started. How far the pointer
+    /// has moved is read from the screen, because this view's own translation
+    /// shrinks once the window begins to follow it.
     private var moveGesture: some Gesture {
         DragGesture(minimumDistance: 8)
-            .onChanged { value in
+            .onChanged { _ in
                 if !moveStarted {
                     moveStarted = true
+                    clickGate.dragged = true
                     onMoveBegan()
                 }
-                onMoveChanged(value.translation)
+                onMoveChanged()
             }
             .onEnded { _ in
                 moveStarted = false
                 onMoveEnded()
+                let gate = clickGate
+                DispatchQueue.main.async {
+                    gate.dragged = false
+                }
             }
+    }
+
+    /// Holds the "this press became a drag" bit without publishing a view update.
+    private final class ClickGate {
+        var dragged = false
     }
 
     /// One line, as tall as the larger of the two card fonts, so Reveal and the

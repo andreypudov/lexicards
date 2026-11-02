@@ -151,6 +151,114 @@ struct RecallTests {
     }
 
     @Test
+    func returningToTheLearningCardShrinksInsteadOfJumping() async {
+        let suiteName = "LexiCardsTests-\(UUID().uuidString)"
+        let suite = UserDefaults(suiteName: suiteName)
+        let original = AppSettings.shared.defaults
+        if let suite {
+            AppSettings.shared.defaults = suite
+        }
+        defer {
+            AppSettings.shared.defaults = original
+            suite?.removePersistentDomain(forName: suiteName)
+        }
+
+        let panel = VocabularyCardPanel()
+        panel.alphaValue = 0
+        panel.update(entry: VocabularyEntry(original: "猫", translation: "cat"))
+        let learning = panel.frame
+        #expect(panel.beginRecall(entries: words(4)))
+        let recall = panel.frame
+        let span = recall.height - learning.height
+        #expect(span > 40)
+
+        panel.orderFrontRegardless()
+        panel.cancelRecall()
+        #expect(abs(panel.frame.height - recall.height) < 1)
+
+        try? await Task.sleep(for: .milliseconds(80))
+        let early = panel.frame.height
+        #expect(early < recall.height - 1)
+        #expect(early > learning.height + span * 0.5)
+
+        try? await Task.sleep(for: .milliseconds(400))
+        #expect(abs(panel.frame.height - learning.height) < 1)
+        panel.orderOut(nil)
+    }
+
+    @Test
+    func showingRecallDoesNotJumpTheWindowToItsFinalSize() {
+        withIsolatedSettings {
+            let panel = VocabularyCardPanel()
+            panel.alphaValue = 0
+            panel.update(entry: VocabularyEntry(original: "猫", translation: "cat"))
+            panel.orderFrontRegardless()
+            defer {
+                panel.orderOut(nil)
+                panel.cancelRecall()
+            }
+
+            let before = panel.frame
+            #expect(panel.beginRecall(entries: words(4)))
+            #expect(abs(panel.frame.height - before.height) < 1)
+            #expect(abs(panel.frame.width - before.width) < 1)
+        }
+    }
+
+    @Test
+    func aResizeHoldsThePinnedCornerThroughout() {
+        let start = CGRect(x: 100, y: 40, width: 320, height: 88)
+        let end = CGRect(x: 180, y: 40, width: 240, height: 200)
+
+        let mid = CardMotion.frame(from: start, to: end, at: 0.5)
+
+        #expect(abs(mid.maxX - start.maxX) < 0.01)
+        #expect(abs(mid.minY - start.minY) < 0.01)
+        #expect(mid.width > end.width)
+        #expect(mid.width < start.width)
+        #expect(mid.height > start.height)
+        #expect(mid.height < end.height)
+        #expect(CardMotion.frame(from: start, to: end, at: 1) == end)
+    }
+
+    @Test
+    func aRecallDragKeepsTheGrabbedPointUnderThePointer() {
+        let startOrigin = CGPoint(x: 200, y: 300)
+        let grabbed = CGPoint(x: 240, y: 340)
+
+        let moved = CardGeometry.origin(
+            moving: startOrigin,
+            followingPointerFrom: grabbed,
+            to: CGPoint(x: 390, y: 260)
+        )
+
+        #expect(moved == CGPoint(x: 350, y: 220))
+    }
+
+    @Test
+    func repeatingARecallDragSampleDoesNotWalkTheCard() {
+        withIsolatedSettings {
+            let panel = VocabularyCardPanel()
+            panel.setFrameOrigin(NSPoint(x: 200, y: 300))
+            panel.rememberRecallPress(at: NSPoint(x: 240, y: 340))
+
+            panel.followRecallPointer(NSPoint(x: 300, y: 280))
+            let once = panel.frame.origin
+            panel.followRecallPointer(NSPoint(x: 300, y: 280))
+
+            #expect(once == NSPoint(x: 260, y: 240))
+            #expect(panel.frame.origin == once)
+
+            panel.followRecallPointer(NSPoint(x: 310, y: 290))
+            #expect(panel.frame.origin == NSPoint(x: 270, y: 250))
+
+            panel.finishRecallPress()
+            panel.followRecallPointer(NSPoint(x: 500, y: 500))
+            #expect(panel.frame.origin == NSPoint(x: 270, y: 250))
+        }
+    }
+
+    @Test
     func wideningPinsTheLeadingEdge() {
         let current = CGRect(x: 40, y: 500, width: 320, height: 100)
         let visible = CGRect(x: 0, y: 0, width: 1_440, height: 900)
@@ -265,6 +373,97 @@ struct RecallTests {
             #expect(abs(panel.frame.maxX - before.maxX) < 1)
             #expect(abs(panel.frame.minY - before.minY) < 1)
         }
+    }
+
+    @Test
+    func aCardHiddenWhenTheSessionEndsSkipsTheShrink() {
+        withIsolatedSettings {
+            let panel = VocabularyCardPanel()
+            panel.alphaValue = 0
+            panel.update(entry: VocabularyEntry(original: "猫", translation: "cat"))
+            panel.orderFrontRegardless()
+            let learning = panel.frame
+            #expect(panel.beginRecall(entries: words(2)))
+
+            var wasRecallingWhenNotified: Bool?
+            panel.onRecallFinished = { [weak panel] in
+                wasRecallingWhenNotified = panel?.isRecalling
+                panel?.orderOut(nil)
+            }
+            panel.cancelRecall()
+
+            #expect(wasRecallingWhenNotified == false)
+            #expect(panel.isVisible == false)
+            #expect(abs(panel.frame.height - learning.height) < 1)
+            #expect(abs(panel.frame.width - learning.width) < 1)
+        }
+    }
+
+    @Test
+    func aSessionStartedDuringTheShrinkRemembersTheReadingFrame() async {
+        let suiteName = "LexiCardsTests-\(UUID().uuidString)"
+        let suite = UserDefaults(suiteName: suiteName)
+        let original = AppSettings.shared.defaults
+        if let suite {
+            AppSettings.shared.defaults = suite
+        }
+        defer {
+            AppSettings.shared.defaults = original
+            suite?.removePersistentDomain(forName: suiteName)
+        }
+
+        let panel = VocabularyCardPanel()
+        panel.alphaValue = 0
+        panel.update(entry: VocabularyEntry(original: "猫", translation: "cat"))
+        let learning = panel.frame
+        #expect(panel.beginRecall(entries: words(4)))
+        panel.orderFrontRegardless()
+        panel.cancelRecall()
+
+        try? await Task.sleep(for: .milliseconds(80))
+        #expect(panel.beginRecall(entries: words(4)))
+        try? await Task.sleep(for: .milliseconds(500))
+        panel.cancelRecall()
+        try? await Task.sleep(for: .milliseconds(500))
+
+        #expect(abs(panel.frame.height - learning.height) < 1)
+        #expect(abs(panel.frame.width - learning.width) < 1)
+        panel.orderOut(nil)
+    }
+
+    @Test
+    func pressingTheCardWhileItGrowsFinishesTheGrowth() async {
+        let suiteName = "LexiCardsTests-\(UUID().uuidString)"
+        let suite = UserDefaults(suiteName: suiteName)
+        let original = AppSettings.shared.defaults
+        if let suite {
+            AppSettings.shared.defaults = suite
+        }
+        defer {
+            AppSettings.shared.defaults = original
+            suite?.removePersistentDomain(forName: suiteName)
+        }
+
+        let panel = VocabularyCardPanel()
+        panel.alphaValue = 0
+        panel.update(entry: VocabularyEntry(original: "猫", translation: "cat"))
+        #expect(panel.beginRecall(entries: words(4)))
+        let recall = panel.frame
+        panel.cancelRecall()
+        let learning = panel.frame
+
+        panel.orderFrontRegardless()
+        #expect(panel.beginRecall(entries: words(4)))
+        try? await Task.sleep(for: .milliseconds(80))
+        #expect(panel.frame.height < recall.height - 1)
+
+        panel.rememberRecallPress(at: NSEvent.mouseLocation)
+        panel.finishRecallPress()
+        #expect(abs(panel.frame.height - recall.height) < 1)
+        #expect(panel.frame.height > learning.height)
+
+        panel.orderOut(nil)
+        panel.cancelRecall()
     }
 
     private func words(_ count: Int) -> [VocabularyEntry] {

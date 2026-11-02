@@ -68,6 +68,48 @@ struct InstantFontUpdateTests {
         }
     }
 
+    /// The vocabulary picker delivers its selection the same way the font
+    /// pickers do, so switching has to leave the view update and still arrive
+    /// while the menu is tracking.
+    @Test
+    func aVocabularySelectionArrivesAfterTheViewUpdateWhileAMenuIsTracking() {
+        withIsolatedSettings {
+            let model = SettingsModel()
+            let source = VocabularySource(
+                id: "builtin:Other",
+                name: "Other",
+                url: URL(fileURLWithPath: "/dev/null"),
+                kind: .builtIn
+            )
+            model.sources = [source]
+            var selected: VocabularySource?
+            model.onSelectSource = { selected = $0 }
+
+            model.selectSource(id: source.id)
+            #expect(selected == nil)
+            #expect(model.selectedSourceID == source.id)
+
+            RunLoop.current.run(mode: .eventTracking, before: Date().addingTimeInterval(0.5))
+
+            #expect(selected == source)
+        }
+    }
+
+    @Test
+    func aVocabularySwitchRebuildsTheVisibleCard() {
+        withIsolatedSettings {
+            let panel = VocabularyCardPanel()
+            panel.alphaValue = 0
+            panel.update(entry: VocabularyEntry(original: "猫", translation: "cat"))
+            panel.orderFrontRegardless()
+            defer { panel.orderOut(nil) }
+            panel.update(entry: VocabularyEntry(original: "犬", translation: "dog"), inPlace: false)
+
+            let hosting = panel.contentView as? MovableHostingView
+            #expect(hosting?.rootView.model.entry?.original == "犬")
+        }
+    }
+
     @Test
     func intervalChangesArePersistedAndAnnounced() {
         withIsolatedSettings {

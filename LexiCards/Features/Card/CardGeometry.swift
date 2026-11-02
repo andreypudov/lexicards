@@ -90,6 +90,23 @@ enum CardGeometry {
         )
     }
 
+    /// Where the window should sit so the pressed point stays under the pointer.
+    ///
+    /// The pointer is in screen coordinates, where y grows upward, the same way
+    /// a window origin does. A translation taken from the moving card cannot be
+    /// used here: that coordinate space moves with the window, so the reported
+    /// distance collapses and the card shakes and lags behind the pointer.
+    static func origin(
+        moving startOrigin: CGPoint,
+        followingPointerFrom startPointer: CGPoint,
+        to pointer: CGPoint
+    ) -> CGPoint {
+        CGPoint(
+            x: startOrigin.x + pointer.x - startPointer.x,
+            y: startOrigin.y + pointer.y - startPointer.y
+        )
+    }
+
     /// Shifts one axis back inside the visible range, shrinking it when it
     /// cannot fit.
     private static func clamped(

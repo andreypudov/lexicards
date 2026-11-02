@@ -49,10 +49,15 @@ final class SettingsModel: ObservableObject {
         sources.first { $0.id == selectedSourceID }
     }
 
+    /// The selection arrives from the `Picker` binding, in the middle of a view
+    /// update and while its menu is tracking, so loading the vocabulary and
+    /// redrawing the card wait a turn like every other commit here.
     func selectSource(id: String) {
         selectedSourceID = id
-        guard let source = sources.first(where: { $0.id == id }) else { return }
-        onSelectSource?(source)
+        guard let source = sources.first(where: { $0.id == id }),
+            let onSelectSource
+        else { return }
+        notifySoon { onSelectSource(source) }
     }
 
     /// Persisting is immediate; telling the rest of the app is deferred by one
@@ -98,8 +103,22 @@ final class SettingsModel: ObservableObject {
         onSetLaunchAtLogin?(isEnabled)
     }
 
+    /// The run-loop block must be `Sendable`, so it carries only `self` and the
+    /// callbacks wait here, delivered first in, first out.
+    private var pendingNotifications: [() -> Void] = []
+
     private func notifySoon(_ notify: (() -> Void)?) {
         guard let notify else { return }
-        RunLoop.main.perform(inModes: [.common]) { notify() }
+        pendingNotifications.append(notify)
+        RunLoop.main.perform(inModes: [.common]) { [weak self] in
+            MainActor.assumeIsolated {
+                self?.deliverPendingNotification()
+            }
+        }
+    }
+
+    private func deliverPendingNotification() {
+        guard !pendingNotifications.isEmpty else { return }
+        pendingNotifications.removeFirst()()
     }
 }
