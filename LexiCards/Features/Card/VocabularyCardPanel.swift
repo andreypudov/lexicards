@@ -240,12 +240,25 @@ final class VocabularyCardPanel: NSPanel, NSWindowDelegate {
 
         super.init(
             contentRect: NSRect(origin: .zero, size: size),
-            styleMask: [.borderless, .nonactivatingPanel],
+            styleMask: [.titled, .fullSizeContentView, .nonactivatingPanel],
             backing: .buffered,
             defer: false
         )
 
+        // A titled window takes its corners and shadow from the system. All
+        // that shows of the title bar is the shape it gives the window.
+        titleVisibility = .hidden
+        titlebarAppearsTransparent = true
+        isMovable = false
+        isExcludedFromWindowsMenu = true
+        // Hiding the bar itself rather than its buttons: left in place, even
+        // invisible, it takes every click on the top of the card.
+        standardWindowButton(.closeButton)?.superview?.superview?.isHidden = true
+
         contentView = hostingView
+        // The init above sized the frame around a title bar on top of `size`.
+        setFrame(NSRect(origin: .zero, size: size), display: false)
+        hostingView.safeAreaRegions = []
         // The recall face is taller. Letting the hosting view's maximum size
         // follow that face makes the window snap down the moment the learning
         // card returns. The panel animates the frame itself.
@@ -956,6 +969,12 @@ final class VocabularyCardPanel: NSPanel, NSWindowDelegate {
         if !faded, abs(next - solid) < 0.0001 {
             solidAlpha = nil
         }
+    }
+
+    /// A titled window is kept below the menu bar. The card goes where it is
+    /// placed, and `CardGeometry` already keeps a growing card on screen.
+    override func constrainFrameRect(_ frameRect: NSRect, to screen: NSScreen?) -> NSRect {
+        frameRect
     }
 
     override var canBecomeKey: Bool {

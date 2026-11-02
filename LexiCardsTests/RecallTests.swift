@@ -630,6 +630,91 @@ struct RecallTests {
         #expect(view.hitTest(NSPoint(x: 50, y: 50)) == nil)
     }
 
+    /// Left in place, even invisible, the title bar takes every click on the top
+    /// of a titled window. A hit test stands in for a click: `sendEvent` cannot
+    /// press a SwiftUI button, whatever is above it.
+    @Test
+    func theTitleBarLeavesTheCloseButtonReachable() throws {
+        withIsolatedSettings {
+            let panel = VocabularyCardPanel()
+            panel.alphaValue = 0
+            panel.update(entry: VocabularyEntry(original: "猫", translation: "cat"))
+            panel.orderFrontRegardless()
+            defer {
+                panel.orderOut(nil)
+                panel.cancelRecall()
+            }
+            #expect(panel.beginRecall(entries: words(4)))
+            settle(panel)
+
+            guard let hosting = panel.contentView, let frame = hosting.superview else {
+                Issue.record("card has no content view")
+                return
+            }
+            let closeButton = NSPoint(x: 24, y: panel.frame.height - 24)
+            let hit = frame.hitTest(closeButton)
+
+            #expect(hit != nil)
+            #expect(hit != hosting)
+            #expect(hit?.isDescendant(of: hosting) == true)
+        }
+    }
+
+    @Test
+    func draggingTheTopOfTheReadingCardMovesIt() {
+        withIsolatedSettings {
+            let panel = VocabularyCardPanel()
+            panel.alphaValue = 0
+            panel.update(entry: VocabularyEntry(original: "猫", translation: "cat"))
+            panel.orderFrontRegardless()
+            defer { panel.orderOut(nil) }
+            settle(panel)
+            let before = panel.frame.origin
+            let start = NSPoint(x: panel.frame.width / 2, y: panel.frame.height - 6)
+
+            panel.sendEvent(mouse(.leftMouseDown, at: start, in: panel))
+            panel.sendEvent(
+                mouse(.leftMouseDragged, at: NSPoint(x: start.x + 40, y: start.y - 30), in: panel))
+            panel.sendEvent(
+                mouse(.leftMouseUp, at: NSPoint(x: start.x + 40, y: start.y - 30), in: panel))
+
+            #expect(abs(panel.frame.origin.x - (before.x + 40)) < 1)
+            #expect(abs(panel.frame.origin.y - (before.y - 30)) < 1)
+        }
+    }
+
+    @Test
+    func theCardKeepsTheSizeItIsGivenAsATitledWindow() {
+        withIsolatedSettings {
+            let panel = VocabularyCardPanel()
+            panel.alphaValue = 0
+            panel.update(entry: VocabularyEntry(original: "猫", translation: "cat"))
+            // A title bar must not add height, or the content sit below one.
+            #expect(panel.contentView?.frame.size == panel.frame.size)
+            #expect(panel.styleMask.contains(.titled))
+        }
+    }
+
+    private func settle(_ panel: NSWindow) {
+        panel.contentView?.layoutSubtreeIfNeeded()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.6))
+    }
+
+    private func mouse(_ type: NSEvent.EventType, at point: NSPoint, in panel: NSWindow) -> NSEvent
+    {
+        NSEvent.mouseEvent(
+            with: type,
+            location: point,
+            modifierFlags: [],
+            timestamp: ProcessInfo.processInfo.systemUptime,
+            windowNumber: panel.windowNumber,
+            context: nil,
+            eventNumber: 0,
+            clickCount: 1,
+            pressure: 1
+        )!
+    }
+
     /// Polls until `condition` holds. A fixed sleep is not usable here: under
     /// load a timer tick arrives late and the whole animation lands at once.
     private func waitUntil(

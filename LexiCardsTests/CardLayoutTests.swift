@@ -25,7 +25,10 @@ struct CardLayoutTests {
                 return
             }
 
-            #expect(abs(panel.frame.height - hosting.fittingSize.height) < 1)
+            // The hidden title bar still counts its safe area in the fitting size,
+            // though the card ignores it.
+            let fitting = hosting.fittingSize.height - hosting.safeAreaInsets.top
+            #expect(abs(panel.frame.height - fitting) < 1)
         }
     }
 

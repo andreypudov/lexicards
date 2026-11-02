@@ -22,6 +22,8 @@ struct FloatingCardView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: contentAlignment)
         .animation(nil, value: contentAlignment)
         .animation(.easeInOut(duration: CardMotion.duration), value: model.recallFaceVisible)
+        // The hidden title bar still reserves its height as a safe area.
+        .ignoresSafeArea()
     }
 
     private var learningCard: some View {
