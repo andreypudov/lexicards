@@ -19,6 +19,9 @@ final class SettingsModel: ObservableObject {
     @Published var translationFontSize: Double
 
     @Published var voiceIdentifier: String?
+    @Published var pronounceDuringRotation: Bool
+    @Published var pronounceDuringRecall: Bool
+    @Published var pronounceTranslation: Bool
     @Published var wordInterval: TimeInterval
     @Published var recallInterval: TimeInterval
     @Published var launchAtLogin: Bool
@@ -28,6 +31,7 @@ final class SettingsModel: ObservableObject {
     var onRemoveSource: ((VocabularySource) -> Void)?
     var onFontsChanged: (() -> Void)?
     var onVoiceChanged: (() -> Void)?
+    var onPronunciationChanged: (() -> Void)?
     var onIntervalChanged: (() -> Void)?
     var onRecallIntervalChanged: (() -> Void)?
     var onPreviewVoice: (() -> Void)?
@@ -40,6 +44,9 @@ final class SettingsModel: ObservableObject {
         translationFontName = settings.translationFontName
         translationFontSize = settings.translationFontSize
         voiceIdentifier = settings.voiceIdentifier
+        pronounceDuringRotation = settings.pronounceDuringRotation
+        pronounceDuringRecall = settings.pronounceDuringRecall
+        pronounceTranslation = settings.pronounceTranslation
         wordInterval = settings.wordInterval
         recallInterval = settings.recallInterval
         launchAtLogin = false
@@ -87,6 +94,15 @@ final class SettingsModel: ObservableObject {
         AppSettings.shared.voiceIdentifier = voiceIdentifier
 
         notifySoon(onVoiceChanged)
+    }
+
+    func commitPronunciation() {
+        let settings = AppSettings.shared
+        settings.pronounceDuringRotation = pronounceDuringRotation
+        settings.pronounceDuringRecall = pronounceDuringRecall
+        settings.pronounceTranslation = pronounceTranslation
+
+        notifySoon(onPronunciationChanged)
     }
 
     func commitInterval() {

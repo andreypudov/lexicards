@@ -86,6 +86,72 @@ struct RecallTests {
         #expect(model.recall == nil)
     }
 
+    /// Speech follows what is on screen: each prompt when its card appears,
+    /// each answer only on Reveal.
+    @Test
+    func eachSideIsAnnouncedOnlyOnceItIsVisible() {
+        let model = CardModel(
+            entry: nil,
+            emptyText: "",
+            wordFont: CardFont(familyName: nil, size: 21, weight: .semibold),
+            translationFont: CardFont(familyName: nil, size: 16, weight: .regular)
+        )
+        model.recall = RecallSession.start(
+            entries: words(2),
+            showsOriginalFirst: { $0 == 0 }
+        )
+        var shown: [String] = []
+        var sides: [Bool] = []
+        model.onRecallTextShown = { text, isOriginal in
+            shown.append(text)
+            sides.append(isOriginal)
+        }
+        let first = model.recall?.prompts[0]
+        let second = model.recall?.prompts[1]
+
+        model.announcePrompt()
+        #expect(shown == [first?.entry.original])
+
+        model.reveal()
+        model.reveal()
+        #expect(shown == [first?.entry.original, first?.entry.translation])
+
+        model.advance()
+        #expect(shown.last == second?.entry.translation)
+        #expect(shown.contains(second?.entry.original ?? "") == false)
+
+        model.reveal()
+        #expect(shown.last == second?.entry.original)
+        #expect(sides == [true, false, false, true])
+
+        var replayed: VocabularyEntry?
+        model.onReplay = { replayed = $0 }
+        model.replay()
+        #expect(replayed == second?.entry)
+    }
+
+    @Test
+    func pronunciationDefaultsToTheWordInBothModes() {
+        withIsolatedSettings {
+            #expect(AppSettings.shared.pronounceDuringRotation)
+            #expect(AppSettings.shared.pronounceDuringRecall)
+            #expect(AppSettings.shared.pronounceTranslation == false)
+
+            let model = SettingsModel()
+            var notified = false
+            model.onPronunciationChanged = { notified = true }
+            model.pronounceDuringRotation = false
+            model.pronounceTranslation = true
+            model.commitPronunciation()
+            RunLoop.current.run(mode: .eventTracking, before: Date().addingTimeInterval(0.5))
+
+            #expect(notified)
+            #expect(AppSettings.shared.pronounceDuringRotation == false)
+            #expect(AppSettings.shared.pronounceDuringRecall)
+            #expect(AppSettings.shared.pronounceTranslation)
+        }
+    }
+
     @Test
     func growingDownHoldsTheTopEdge() {
         let current = CGRect(x: 40, y: 500, width: 320, height: 100)

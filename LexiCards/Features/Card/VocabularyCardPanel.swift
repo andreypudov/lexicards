@@ -196,6 +196,10 @@ final class VocabularyCardPanel: NSPanel, NSWindowDelegate {
     /// the session is cleared but before the card shrinks back, so a card
     /// shown only for this session can be hidden without animating first.
     var onRecallFinished: (() -> Void)?
+    /// A side of a recall card came into view; see `CardModel.onRecallTextShown`.
+    var onRecallTextShown: ((_ text: String, _ isOriginal: Bool) -> Void)?
+    /// The replay button on the recall card was pressed.
+    var onReplay: ((VocabularyEntry) -> Void)?
 
     var isRecalling: Bool {
         model.isRecalling
@@ -243,6 +247,12 @@ final class VocabularyCardPanel: NSPanel, NSWindowDelegate {
 
         model.onFinished = { [weak self] in
             self?.endRecall()
+        }
+        model.onRecallTextShown = { [weak self] text, isOriginal in
+            self?.onRecallTextShown?(text, isOriginal)
+        }
+        model.onReplay = { [weak self] entry in
+            self?.onReplay?(entry)
         }
         model.onMoveBegan = { [weak self] in
             self?.beginCardDrag()
@@ -426,6 +436,7 @@ final class VocabularyCardPanel: NSPanel, NSWindowDelegate {
         let width = fittedRecallWidth(prompts: session.prompts)
         model.recall = session
         model.recallFaceVisible = true
+        model.announcePrompt()
 
         guard let prompt = session.current,
             let height = usableHeight(

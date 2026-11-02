@@ -54,17 +54,26 @@ final class VocabularySpeaker {
         translationVoice = voice(for: translationLanguageCode)
     }
 
-    func speak(entry: VocabularyEntry) {
-        speechSynthesizer.stopSpeaking(at: .immediate)
+    func speak(entry: VocabularyEntry, includingTranslation: Bool) {
+        speak(entry.original, isOriginal: true)
 
-        let originalUtterance = AVSpeechUtterance(string: entry.original)
-        originalUtterance.voice = preferredVoice ?? originalVoice
-        speechSynthesizer.speak(originalUtterance)
+        guard includingTranslation else {
+            return
+        }
 
         let translationUtterance = AVSpeechUtterance(string: entry.translation)
         translationUtterance.preUtteranceDelay = 0.25
         translationUtterance.voice = preferredVoice ?? translationVoice
         speechSynthesizer.speak(translationUtterance)
+    }
+
+    /// Speaks one side of a card on its own, interrupting whatever was playing.
+    func speak(_ text: String, isOriginal: Bool) {
+        speechSynthesizer.stopSpeaking(at: .immediate)
+
+        let utterance = AVSpeechUtterance(string: text)
+        utterance.voice = preferredVoice ?? (isOriginal ? originalVoice : translationVoice)
+        speechSynthesizer.speak(utterance)
     }
 
     /// Speaks a sample so a voice can be auditioned from settings before it is

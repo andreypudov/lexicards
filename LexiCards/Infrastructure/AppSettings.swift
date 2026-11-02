@@ -17,6 +17,9 @@ final class AppSettings {
     private enum Keys {
         static let wordInterval = "wordInterval"
         static let pronunciationEnabled = "pronunciationEnabled"
+        static let pronounceDuringRotation = "pronounceDuringRotation"
+        static let pronounceDuringRecall = "pronounceDuringRecall"
+        static let pronounceTranslation = "pronounceTranslation"
         static let emptyVocabularyText = "emptyVocabularyText"
         static let defaultLanguageCode = "defaultLanguageCode"
         static let lastVocabularyBookmark = "lastVocabularyBookmark"
@@ -44,6 +47,9 @@ final class AppSettings {
         static let wordFontSize: Double = 21
         static let translationFontSize: Double = 16
         static let recallInterval: TimeInterval = 30 * 60
+        static let pronounceDuringRotation = true
+        static let pronounceDuringRecall = true
+        static let pronounceTranslation = false
     }
 
     var wordInterval: TimeInterval {
@@ -74,6 +80,35 @@ final class AppSettings {
         set {
             defaults.set(newValue, forKey: Keys.pronunciationEnabled)
         }
+    }
+
+    /// Whether each new card in the rotation is spoken. `pronunciationEnabled`
+    /// still has to be on.
+    var pronounceDuringRotation: Bool {
+        get {
+            bool(forKey: Keys.pronounceDuringRotation, default: Defaults.pronounceDuringRotation)
+        }
+        set { defaults.set(newValue, forKey: Keys.pronounceDuringRotation) }
+    }
+
+    /// Whether a recall session speaks each side as it comes into view.
+    var pronounceDuringRecall: Bool {
+        get { bool(forKey: Keys.pronounceDuringRecall, default: Defaults.pronounceDuringRecall) }
+        set { defaults.set(newValue, forKey: Keys.pronounceDuringRecall) }
+    }
+
+    /// `false` speaks only the word being learned; `true` adds the translation.
+    var pronounceTranslation: Bool {
+        get { bool(forKey: Keys.pronounceTranslation, default: Defaults.pronounceTranslation) }
+        set { defaults.set(newValue, forKey: Keys.pronounceTranslation) }
+    }
+
+    private func bool(forKey key: String, default fallback: Bool) -> Bool {
+        guard defaults.object(forKey: key) != nil else {
+            return fallback
+        }
+
+        return defaults.bool(forKey: key)
     }
 
     var emptyVocabularyText: String {

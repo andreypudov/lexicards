@@ -94,8 +94,17 @@ final class AppCoordinator {
         settingsModel.onRecallIntervalChanged = { [weak self] in
             self?.startRecallTimer()
         }
+        settingsModel.onPronunciationChanged = { [weak self] in
+            self?.pronunciationSettingsDidChange()
+        }
         vocabularyCardPanel.onRecallFinished = { [weak self] in
             self?.recallDidFinish()
+        }
+        vocabularyCardPanel.onRecallTextShown = { [weak self] text, isOriginal in
+            self?.speakRecallText(text, isOriginal: isOriginal)
+        }
+        vocabularyCardPanel.onReplay = { [weak self] entry in
+            self?.vocabularySpeaker.speak(entry.original, isOriginal: true)
         }
         settingsModel.onPreviewVoice = { [weak self] in
             self?.previewVoice()
@@ -310,6 +319,8 @@ final class AppCoordinator {
             vocabularyCardPanel.orderFrontRegardless()
         }
 
+        // Stopped before the session starts: the first prompt may speak.
+        vocabularySpeaker.stop()
         guard vocabularyCardPanel.beginRecall(entries: vocabularyController.allEntries) else {
             if showsForSession {
                 vocabularyCardPanel.orderOut(nil)
@@ -321,7 +332,6 @@ final class AppCoordinator {
         }
 
         isCardShownForRecall = showsForSession
-        vocabularySpeaker.stop()
         timer?.invalidate()
         timer = nil
         recallTimer?.invalidate()
@@ -329,6 +339,7 @@ final class AppCoordinator {
     }
 
     private func recallDidFinish() {
+        vocabularySpeaker.stop()
         if isCardShownForRecall {
             isCardShownForRecall = false
             vocabularyCardPanel.orderOut(nil)
@@ -343,11 +354,7 @@ final class AppCoordinator {
         let entry = vocabularyController.currentEntry
 
         vocabularyCardPanel.update(entry: entry, inPlace: inPlace)
-
-        guard isPronunciationEnabled, isCardVisible, let entry else {
-            return
-        }
-        vocabularySpeaker.speak(entry: entry)
+        speakRotationCard()
     }
 
     private func toggleCard() {
@@ -391,8 +398,45 @@ final class AppCoordinator {
             return
         }
 
-        if let entry = vocabularyController.currentEntry {
-            vocabularySpeaker.speak(entry: entry)
+        speakRotationCard()
+    }
+
+    /// The reading card speaks the word, and the translation when asked to.
+    private func speakRotationCard() {
+        let settings = AppSettings.shared
+        guard isPronunciationEnabled, settings.pronounceDuringRotation, isCardVisible,
+            !vocabularyCardPanel.isRecalling,
+            let entry = vocabularyController.currentEntry
+        else {
+            return
+        }
+
+        vocabularySpeaker.speak(entry: entry, includingTranslation: settings.pronounceTranslation)
+    }
+
+    /// A recall card speaks each side as it comes into view — the prompt when
+    /// the card appears, the answer on Reveal — so nothing hidden is read out.
+    /// In word-only mode the translation side stays silent.
+    private func speakRecallText(_ text: String, isOriginal: Bool) {
+        let settings = AppSettings.shared
+        guard isPronunciationEnabled, settings.pronounceDuringRecall,
+            isOriginal || settings.pronounceTranslation
+        else {
+            return
+        }
+
+        vocabularySpeaker.speak(text, isOriginal: isOriginal)
+    }
+
+    /// A mode switched off mid-sentence stops speaking now rather than after
+    /// the word.
+    private func pronunciationSettingsDidChange() {
+        let settings = AppSettings.shared
+        let isAllowedNow =
+            vocabularyCardPanel.isRecalling
+            ? settings.pronounceDuringRecall : settings.pronounceDuringRotation
+        if !isAllowedNow {
+            vocabularySpeaker.stop()
         }
     }
 

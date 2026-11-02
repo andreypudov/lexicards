@@ -30,6 +30,11 @@ final class CardModel: ObservableObject {
     @Published var widthAnchor: CardWidthAnchor = .trailing
 
     var onFinished: (() -> Void)?
+    /// A side of the current recall card came into view: the prompt when the
+    /// card appears, the answer on Reveal. `isOriginal` says which side it is.
+    var onRecallTextShown: ((_ text: String, _ isOriginal: Bool) -> Void)?
+    /// The replay button on the recall card was pressed.
+    var onReplay: ((VocabularyEntry) -> Void)?
     var onMoveBegan: (() -> Void)?
     var onMoveChanged: (() -> Void)?
     var onMoveEnded: (() -> Void)?
@@ -66,6 +71,26 @@ final class CardModel: ObservableObject {
 
         session.reveal()
         recall = session
+        if let prompt = session.current {
+            onRecallTextShown?(prompt.answer, !prompt.showsOriginalFirst)
+        }
+    }
+
+    /// Reports the prompt of the current card, which has just come into view.
+    func announcePrompt() {
+        guard let prompt = recall?.current else {
+            return
+        }
+
+        onRecallTextShown?(prompt.prompt, prompt.showsOriginalFirst)
+    }
+
+    func replay() {
+        guard let prompt = recall?.current else {
+            return
+        }
+
+        onReplay?(prompt.entry)
     }
 
     func advance() {
@@ -79,6 +104,7 @@ final class CardModel: ObservableObject {
             onFinished?()
         } else {
             recall = session
+            announcePrompt()
         }
     }
 }

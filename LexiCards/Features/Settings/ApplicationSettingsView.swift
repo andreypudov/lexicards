@@ -78,6 +78,26 @@ struct ApplicationSettingsView: View {
             }
 
             Section("Pronunciation") {
+                Toggle(
+                    "Speak cards in the rotation",
+                    isOn: pronunciationBinding(\.pronounceDuringRotation))
+                Toggle(
+                    "Speak cards during recall", isOn: pronunciationBinding(\.pronounceDuringRecall)
+                )
+
+                Picker("Speak", selection: pronunciationBinding(\.pronounceTranslation)) {
+                    Text("Word only").tag(false)
+                    Text("Word and translation").tag(true)
+                }
+
+                Text(
+                    "Pronounce Cards in the menu bar turns speech on and off. During recall "
+                        + "each side is spoken as it appears, so an answer is never read out "
+                        + "before you reveal it."
+                )
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
                 HStack {
                     Picker("Voice", selection: voiceBinding) {
                         Text("Automatic").tag(String?.none)
@@ -159,6 +179,18 @@ struct ApplicationSettingsView: View {
                     .monospacedDigit()
             }
         }
+    }
+
+    private func pronunciationBinding(
+        _ keyPath: ReferenceWritableKeyPath<SettingsModel, Bool>
+    ) -> Binding<Bool> {
+        Binding(
+            get: { model[keyPath: keyPath] },
+            set: {
+                model[keyPath: keyPath] = $0
+                model.commitPronunciation()
+            }
+        )
     }
 
     private var voiceBinding: Binding<String?> {

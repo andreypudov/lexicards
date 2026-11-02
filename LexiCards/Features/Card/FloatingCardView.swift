@@ -43,6 +43,7 @@ struct FloatingCardView: View {
             translationFont: model.translationFont,
             onReveal: { model.reveal() },
             onNext: { model.advance() },
+            onReplay: { model.replay() },
             onMoveBegan: { model.onMoveBegan?() },
             onMoveChanged: { model.onMoveChanged?() },
             onMoveEnded: { model.onMoveEnded?() }

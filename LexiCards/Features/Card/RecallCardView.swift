@@ -14,6 +14,7 @@ struct RecallCardView: View {
     let translationFont: CardFont
     var onReveal: () -> Void = {}
     var onNext: () -> Void = {}
+    var onReplay: () -> Void = {}
     var onMoveBegan: () -> Void = {}
     var onMoveChanged: () -> Void = {}
     var onMoveEnded: () -> Void = {}
@@ -34,6 +35,13 @@ struct RecallCardView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .monospacedDigit()
+                    .frame(maxWidth: .infinity)
+                    // An overlay, so the button never changes the measured size.
+                    .overlay(alignment: .trailing) {
+                        if isOriginalVisible {
+                            replayButton
+                        }
+                    }
             }
             .frame(maxWidth: .infinity)
 
@@ -93,6 +101,27 @@ struct RecallCardView: View {
                     gate.dragged = false
                 }
             }
+    }
+
+    /// Replaying before Reveal would read out an answer that is still hidden.
+    private var isOriginalVisible: Bool {
+        prompt.showsOriginalFirst || isRevealed
+    }
+
+    private var replayButton: some View {
+        Button {
+            guard !clickGate.dragged else {
+                return
+            }
+            onReplay()
+        } label: {
+            Image(systemName: "speaker.wave.2")
+                .font(.caption)
+        }
+        .buttonStyle(.borderless)
+        .foregroundStyle(.secondary)
+        .help("Pronounce \(prompt.entry.original)")
+        .accessibilityLabel("Pronounce")
     }
 
     /// Holds the "this press became a drag" bit without publishing a view update.
