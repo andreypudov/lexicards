@@ -5,12 +5,15 @@ final class MenuBarController: NSObject {
     var onOpenSettings: (() -> Void)?
     var onToggleCard: (() -> Void)?
     var onStartRecall: (() -> Void)?
+    var onEndRecall: (() -> Void)?
     var onTogglePronunciation: (() -> Void)?
     var onQuit: (() -> Void)?
 
     private let statusItem: NSStatusItem
     private let pronounceCardsMenuItem: NSMenuItem
     private let showCardMenuItem: NSMenuItem
+    /// Starts a session, or ends the one in progress. See `setRecalling`.
+    let recallMenuItem: NSMenuItem
 
     override init() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
@@ -23,6 +26,11 @@ final class MenuBarController: NSObject {
             title: "Show Card",
             action: #selector(toggleCard),
             keyEquivalent: "c"
+        )
+        recallMenuItem = NSMenuItem(
+            title: "Recall Now",
+            action: #selector(startRecall),
+            keyEquivalent: "r"
         )
         super.init()
 
@@ -41,6 +49,11 @@ final class MenuBarController: NSObject {
 
     func setPronunciationEnabled(_ isEnabled: Bool) {
         pronounceCardsMenuItem.state = isEnabled ? .on : .off
+    }
+
+    func setRecalling(_ isRecalling: Bool) {
+        recallMenuItem.title = isRecalling ? "End Recall" : "Recall Now"
+        recallMenuItem.action = isRecalling ? #selector(endRecall) : #selector(startRecall)
     }
 
     private func configureStatusItem() {
@@ -68,12 +81,8 @@ final class MenuBarController: NSObject {
 
         showCardMenuItem.target = self
         menu.addItem(showCardMenuItem)
-        menu.addItem(
-            makeItem(
-                title: "Recall Now",
-                action: #selector(startRecall),
-                keyEquivalent: "r"
-            ))
+        recallMenuItem.target = self
+        menu.addItem(recallMenuItem)
         pronounceCardsMenuItem.target = self
         menu.addItem(pronounceCardsMenuItem)
 
@@ -120,6 +129,10 @@ final class MenuBarController: NSObject {
 
     @objc private func startRecall() {
         onStartRecall?()
+    }
+
+    @objc private func endRecall() {
+        onEndRecall?()
     }
 
     @objc private func togglePronunciation() {

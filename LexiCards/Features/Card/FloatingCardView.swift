@@ -44,6 +44,7 @@ struct FloatingCardView: View {
             onReveal: { model.reveal() },
             onNext: { model.advance() },
             onReplay: { model.replay() },
+            onCancel: { model.cancel() },
             onMoveBegan: { model.onMoveBegan?() },
             onMoveChanged: { model.onMoveChanged?() },
             onMoveEnded: { model.onMoveEnded?() }

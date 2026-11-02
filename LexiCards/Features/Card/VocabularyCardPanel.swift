@@ -217,7 +217,7 @@ final class VocabularyCardPanel: NSPanel, NSWindowDelegate {
     /// A side of a recall card came into view; see `CardModel.onRecallTextShown`.
     var onRecallTextShown: ((_ text: String, _ isOriginal: Bool) -> Void)?
     /// The replay button on the recall card was pressed.
-    var onReplay: ((VocabularyEntry) -> Void)?
+    var onReplay: ((_ text: String, _ isOriginal: Bool) -> Void)?
 
     var isRecalling: Bool {
         model.isRecalling
@@ -269,8 +269,8 @@ final class VocabularyCardPanel: NSPanel, NSWindowDelegate {
         model.onRecallTextShown = { [weak self] text, isOriginal in
             self?.onRecallTextShown?(text, isOriginal)
         }
-        model.onReplay = { [weak self] entry in
-            self?.onReplay?(entry)
+        model.onReplay = { [weak self] text, isOriginal in
+            self?.onReplay?(text, isOriginal)
         }
         model.onMoveBegan = { [weak self] in
             self?.beginCardDrag()

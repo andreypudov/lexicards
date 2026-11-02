@@ -4,7 +4,7 @@ import SwiftUI
 ///
 /// The question stays on top. A question mark holds the line under it until
 /// Reveal replaces that mark with the answer. Both lines use the same fonts as
-/// the reading card. Next moves on.
+/// the reading card. Next moves on, and the close button leaves the session.
 struct RecallCardView: View {
     let prompt: RecallPrompt
     let isRevealed: Bool
@@ -15,6 +15,7 @@ struct RecallCardView: View {
     var onReveal: () -> Void = {}
     var onNext: () -> Void = {}
     var onReplay: () -> Void = {}
+    var onCancel: () -> Void = {}
     var onMoveBegan: () -> Void = {}
     var onMoveChanged: () -> Void = {}
     var onMoveEnded: () -> Void = {}
@@ -27,23 +28,18 @@ struct RecallCardView: View {
 
     var body: some View {
         VStack(spacing: 16) {
-            VStack(spacing: 6) {
-                ProgressView(value: Double(index + 1), total: Double(max(count, 1)))
-                    .progressViewStyle(.linear)
-
-                Text("\(index + 1) of \(count)")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .monospacedDigit()
-                    .frame(maxWidth: .infinity)
-                    // An overlay, so the button never changes the measured size.
-                    .overlay(alignment: .trailing) {
-                        if isOriginalVisible {
-                            replayButton
-                        }
-                    }
-            }
-            .frame(maxWidth: .infinity)
+            Text("\(index + 1) of \(count)")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .monospacedDigit()
+                .frame(maxWidth: .infinity)
+                // Overlays, so the buttons never change the measured size.
+                .overlay(alignment: .leading) {
+                    cancelButton
+                }
+                .overlay(alignment: .trailing) {
+                    replayButton
+                }
 
             VStack(spacing: 8) {
                 textLine(prompt.prompt, font: font(forOriginal: prompt.showsOriginalFirst))
@@ -103,11 +99,6 @@ struct RecallCardView: View {
             }
     }
 
-    /// Replaying before Reveal would read out an answer that is still hidden.
-    private var isOriginalVisible: Bool {
-        prompt.showsOriginalFirst || isRevealed
-    }
-
     private var replayButton: some View {
         Button {
             guard !clickGate.dragged else {
@@ -120,8 +111,24 @@ struct RecallCardView: View {
         }
         .buttonStyle(.borderless)
         .foregroundStyle(.secondary)
-        .help("Pronounce \(prompt.entry.original)")
+        .help("Pronounce \(prompt.wordToPronounce(isRevealed: isRevealed).text)")
         .accessibilityLabel("Pronounce")
+    }
+
+    private var cancelButton: some View {
+        Button {
+            guard !clickGate.dragged else {
+                return
+            }
+            onCancel()
+        } label: {
+            Image(systemName: "xmark")
+                .font(.caption)
+        }
+        .buttonStyle(.borderless)
+        .foregroundStyle(.secondary)
+        .help("End Recall")
+        .accessibilityLabel("End Recall")
     }
 
     /// Holds the "this press became a drag" bit without publishing a view update.

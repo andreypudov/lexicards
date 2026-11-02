@@ -60,6 +60,9 @@ final class AppCoordinator {
         menuBarController.onStartRecall = { [weak self] in
             self?.beginRecall(showingCard: true)
         }
+        menuBarController.onEndRecall = { [weak self] in
+            self?.vocabularyCardPanel.cancelRecall()
+        }
         menuBarController.onTogglePronunciation = { [weak self] in
             self?.togglePronunciation()
         }
@@ -106,8 +109,8 @@ final class AppCoordinator {
         vocabularyCardPanel.onRecallTextShown = { [weak self] text, isOriginal in
             self?.speakRecallText(text, isOriginal: isOriginal)
         }
-        vocabularyCardPanel.onReplay = { [weak self] entry in
-            self?.vocabularySpeaker.speak(entry.original, isOriginal: true)
+        vocabularyCardPanel.onReplay = { [weak self] text, isOriginal in
+            self?.vocabularySpeaker.speak(text, isOriginal: isOriginal)
         }
         settingsModel.onPreviewVoice = { [weak self] in
             self?.previewVoice()
@@ -335,6 +338,7 @@ final class AppCoordinator {
         }
 
         isCardShownForRecall = showsForSession
+        menuBarController.setRecalling(true)
         timer?.invalidate()
         timer = nil
         recallTimer?.invalidate()
@@ -342,6 +346,7 @@ final class AppCoordinator {
     }
 
     private func recallDidFinish() {
+        menuBarController.setRecalling(false)
         vocabularySpeaker.stop()
         if isCardShownForRecall {
             isCardShownForRecall = false

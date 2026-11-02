@@ -124,10 +124,10 @@ struct RecallTests {
         #expect(shown.last == second?.entry.original)
         #expect(sides == [true, false, false, true])
 
-        var replayed: VocabularyEntry?
-        model.onReplay = { replayed = $0 }
+        var replayed: String?
+        model.onReplay = { text, _ in replayed = text }
         model.replay()
-        #expect(replayed == second?.entry)
+        #expect(replayed == second?.entry.original)
     }
 
     @Test
@@ -530,6 +530,93 @@ struct RecallTests {
 
         panel.orderOut(nil)
         panel.cancelRecall()
+    }
+
+    @Test
+    func cancellingEndsTheSessionWithoutWalkingTheRemainingCards() {
+        let model = CardModel(
+            entry: nil,
+            emptyText: "",
+            wordFont: .word(from: AppSettings.shared),
+            translationFont: .translation(from: AppSettings.shared)
+        )
+        var finished = 0
+        var shown = 0
+        model.onFinished = { finished += 1 }
+        model.onRecallTextShown = { _, _ in shown += 1 }
+        model.recall = RecallSession.start(entries: words(3), showsOriginalFirst: { _ in true })
+
+        model.cancel()
+
+        #expect(model.recall == nil)
+        #expect(!model.isRecalling)
+        #expect(finished == 1)
+        #expect(shown == 0)
+        // The face is still drawn while the window shrinks back, so its close
+        // button can be pressed again. That must not end the session twice.
+        #expect(model.displayedRecall != nil)
+        model.cancel()
+        #expect(finished == 1)
+    }
+
+    @Test
+    func replayPronouncesTheWordOnTheCard() {
+        let model = CardModel(
+            entry: nil,
+            emptyText: "",
+            wordFont: .word(from: AppSettings.shared),
+            translationFont: .translation(from: AppSettings.shared)
+        )
+        var replayed: [String] = []
+        var sides: [Bool] = []
+        model.onReplay = { text, isOriginal in
+            replayed.append(text)
+            sides.append(isOriginal)
+        }
+
+        // The original is the hidden answer, so the translation is read instead.
+        model.recall = RecallSession.start(entries: words(1), showsOriginalFirst: { _ in false })
+        let entry = model.recall?.current?.entry
+        model.replay()
+        #expect(replayed == [entry?.translation])
+        #expect(sides == [false])
+
+        model.reveal()
+        model.replay()
+        #expect(replayed.last == entry?.original)
+        #expect(sides.last == true)
+
+        // The original is the question, so it is read straight away.
+        model.recall = RecallSession.start(entries: words(1), showsOriginalFirst: { _ in true })
+        model.replay()
+        #expect(replayed.last == entry?.original)
+        #expect(sides.last == true)
+    }
+
+    @Test
+    func theMenuItemEndsASessionInProgress() {
+        let controller = MenuBarController()
+        var started = 0
+        var ended = 0
+        controller.onStartRecall = { started += 1 }
+        controller.onEndRecall = { ended += 1 }
+        let item = controller.recallMenuItem
+
+        #expect(item.title == "Recall Now")
+        NSApp.sendAction(item.action!, to: item.target, from: item)
+        #expect(started == 1)
+
+        controller.setRecalling(true)
+        #expect(item.title == "End Recall")
+        NSApp.sendAction(item.action!, to: item.target, from: item)
+        #expect(ended == 1)
+        #expect(started == 1)
+
+        controller.setRecalling(false)
+        #expect(item.title == "Recall Now")
+        NSApp.sendAction(item.action!, to: item.target, from: item)
+        #expect(started == 2)
+        #expect(ended == 1)
     }
 
     /// Polls until `condition` holds. A fixed sleep is not usable here: under

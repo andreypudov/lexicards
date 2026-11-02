@@ -33,8 +33,9 @@ final class CardModel: ObservableObject {
     /// A side of the current recall card came into view: the prompt when the
     /// card appears, the answer on Reveal. `isOriginal` says which side it is.
     var onRecallTextShown: ((_ text: String, _ isOriginal: Bool) -> Void)?
-    /// The replay button on the recall card was pressed.
-    var onReplay: ((VocabularyEntry) -> Void)?
+    /// The replay button on the recall card was pressed. `isOriginal` says
+    /// which side `text` is.
+    var onReplay: ((_ text: String, _ isOriginal: Bool) -> Void)?
     var onMoveBegan: (() -> Void)?
     var onMoveChanged: (() -> Void)?
     var onMoveEnded: (() -> Void)?
@@ -86,11 +87,24 @@ final class CardModel: ObservableObject {
     }
 
     func replay() {
-        guard let prompt = recall?.current else {
+        guard let session = recall, let prompt = session.current else {
             return
         }
 
-        onReplay?(prompt.entry)
+        let word = prompt.wordToPronounce(isRevealed: session.isRevealed)
+        onReplay?(word.text, word.isOriginal)
+    }
+
+    /// Leaves the session without finishing the remaining cards. Nothing is
+    /// recorded per card, so there is nothing to confirm or to lose. The guard
+    /// covers the face still drawn while the window shrinks back.
+    func cancel() {
+        guard isRecalling else {
+            return
+        }
+
+        recall = nil
+        onFinished?()
     }
 
     func advance() {

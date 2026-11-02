@@ -16,6 +16,15 @@ struct RecallPrompt: Equatable, Identifiable {
     var answer: String {
         showsOriginalFirst ? entry.translation : entry.original
     }
+
+    /// The word the speaker button reads: the original whenever it is on
+    /// screen, otherwise the translation. A hidden answer is never read out.
+    func wordToPronounce(isRevealed: Bool) -> (text: String, isOriginal: Bool) {
+        if showsOriginalFirst || isRevealed {
+            return (entry.original, true)
+        }
+        return (entry.translation, false)
+    }
 }
 
 /// A short run of prompts. The sample is random on purpose: scheduling what is
