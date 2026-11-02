@@ -203,6 +203,7 @@ struct SettingsTests {
         let named = CardFont(familyName: "Helvetica", size: 18, weight: .regular)
 
         #expect(system.resolved == Font.system(size: 26, weight: .semibold, design: .rounded))
-        #expect(named.resolved == Font.custom("Helvetica", size: 18))
+        #expect(named.nsFont.familyName == "Helvetica")
+        #expect(named.nsFont.pointSize == 18)
     }
 }

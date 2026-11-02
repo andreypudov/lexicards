@@ -439,6 +439,83 @@ struct RecallTests {
         }
     }
 
+    /// Changing vocabulary ends the session and shows a new word in one turn.
+    /// Refitting that word must not stop the shrink on the recall card's width
+    /// and remember it as the reading card's own.
+    @Test
+    func aNewWordDuringTheShrinkStillReturnsToTheReadingFrame() {
+        withIsolatedSettings {
+            let panel = VocabularyCardPanel()
+            panel.alphaValue = 0
+            panel.update(entry: VocabularyEntry(original: "猫", translation: "cat"))
+            panel.orderFrontRegardless()
+            defer { panel.orderOut(nil) }
+            let learning = panel.frame
+            let entry = VocabularyEntry(
+                original:
+                    "a considerably longer prompt that needs more width than the reading card",
+                translation:
+                    "a considerably longer answer that needs more width than the reading card"
+            )
+            #expect(panel.beginRecall(entries: [entry]))
+            settle(panel)
+            #expect(panel.frame.width > learning.width)
+
+            panel.cancelRecall()
+            panel.update(entry: VocabularyEntry(original: "犬", translation: "dog"), inPlace: false)
+            settle(panel)
+
+            #expect(abs(panel.frame.width - learning.width) < 1)
+            #expect(abs(panel.frame.maxX - learning.maxX) < 1)
+            #expect(abs((AppSettings.shared.cardWindowSize?.width ?? 0) - learning.width) < 1)
+        }
+    }
+
+    /// A press during the shrink would otherwise fight the animation for the
+    /// window and measure its drag from a frame on the way somewhere else.
+    @Test
+    func pressingTheReadingCardDuringTheShrinkFinishesIt() {
+        withIsolatedSettings {
+            let panel = VocabularyCardPanel()
+            panel.alphaValue = 0
+            panel.update(entry: VocabularyEntry(original: "猫", translation: "cat"))
+            panel.orderFrontRegardless()
+            defer { panel.orderOut(nil) }
+            let learning = panel.frame
+            #expect(panel.beginRecall(entries: words(4)))
+            settle(panel)
+            panel.cancelRecall()
+            #expect(abs(panel.frame.height - learning.height) > 1)
+
+            panel.contentView?.mouseDown(
+                with: mouse(.leftMouseDown, at: NSPoint(x: 100, y: 20), in: panel))
+
+            #expect(abs(panel.frame.height - learning.height) < 1)
+            #expect(abs(panel.frame.width - learning.width) < 1)
+        }
+    }
+
+    /// The card keeps its size through a session, except when a font makes that
+    /// size too small: the button would be clipped out of reach.
+    @Test
+    func aLargerFontDuringASessionMakesRoomForIt() {
+        withIsolatedSettings {
+            let panel = VocabularyCardPanel()
+            panel.update(entry: VocabularyEntry(original: "猫", translation: "cat"))
+            let learning = panel.frame
+            #expect(panel.beginRecall(entries: words(2)))
+            let before = panel.frame
+
+            panel.apply(
+                wordFont: CardFont(familyName: nil, size: 60, weight: .semibold),
+                translationFont: CardFont(familyName: nil, size: 60, weight: .regular)
+            )
+
+            #expect(panel.frame.height > before.height)
+            #expect(abs((AppSettings.shared.cardWindowSize?.width ?? 0) - learning.width) < 1)
+        }
+    }
+
     @Test
     func aCardHiddenWhenTheSessionEndsSkipsTheShrink() {
         withIsolatedSettings {

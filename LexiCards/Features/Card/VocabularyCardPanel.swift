@@ -57,6 +57,10 @@ final class MovableHostingView: NSHostingView<FloatingCardView> {
             return
         }
 
+        // A press during a resize animation would otherwise fight its timer for
+        // the frame, measuring the drag from wherever the card happened to be.
+        (window as? VocabularyCardPanel)?.settleFrameAnimation()
+
         let location = convert(event.locationInWindow, from: nil)
         let edge = horizontalEdge(at: location)
 
@@ -315,6 +319,13 @@ final class VocabularyCardPanel: NSPanel, NSWindowDelegate {
     }
 
     func refresh(allowingInPlaceUpdate: Bool = true) {
+        // Ending a session and showing a new word can share a turn, when the
+        // vocabulary changes. The new height belongs on the reading frame the
+        // shrink is heading for, not on the recall frame it is still leaving.
+        if !isRecalling {
+            settleFrameAnimation()
+        }
+
         let entryChanged = model.entry != currentEntry
         let appearanceChanged =
             model.emptyText != AppSettings.shared.emptyVocabularyText
@@ -345,8 +356,14 @@ final class VocabularyCardPanel: NSPanel, NSWindowDelegate {
             apply()
         }
 
-        // The recall card keeps the size it took at the start of the session.
+        // The recall card keeps the size it took at the start of the session,
+        // unless new fonts mean its text and buttons no longer fit that size.
         guard !isRecalling else {
+            if appearanceChanged, let session = model.recall,
+                let size = recallCardSize(for: session)
+            {
+                setCardFrame(frameWithSize(size), animated: false)
+            }
             return
         }
 
@@ -359,17 +376,17 @@ final class VocabularyCardPanel: NSPanel, NSWindowDelegate {
     ///
     /// Built beside the live view. The probe is not ordered on screen.
     private func measuredLearningHeight(at proposedWidth: CGFloat? = nil) -> CGFloat {
-        let probe = NSHostingView(
-            rootView: VocabularyCardView(
+        let width =
+            proposedWidth ?? (hostingView.bounds.width > 1 ? hostingView.bounds.width : frame.width)
+        return measuredHeight(
+            of: VocabularyCardView(
                 entry: model.entry,
                 emptyText: model.emptyText,
                 wordFont: model.wordFont,
                 translationFont: model.translationFont
-            )
+            ),
+            width: width
         )
-        let width =
-            proposedWidth ?? (hostingView.bounds.width > 1 ? hostingView.bounds.width : frame.width)
-        return measuredHeight(of: probe, width: width)
     }
 
     private func measuredRecallHeight(
@@ -378,17 +395,35 @@ final class VocabularyCardPanel: NSPanel, NSWindowDelegate {
         count: Int,
         width: CGFloat
     ) -> CGFloat {
-        let probe = NSHostingView(
-            rootView: RecallCardView(
+        measuredHeight(
+            of: RecallCardView(
                 prompt: prompt,
                 isRevealed: false,
                 index: index,
                 count: count,
                 wordFont: model.wordFont,
                 translationFont: model.translationFont
+            ),
+            width: width
+        )
+    }
+
+    /// The size the card takes for a session, or `nil` when it cannot be measured.
+    private func recallCardSize(for session: RecallSession) -> CGSize? {
+        guard let prompt = session.current else {
+            return nil
+        }
+
+        let width = fittedRecallWidth(prompts: session.prompts)
+        let height = usableHeight(
+            measuredRecallHeight(
+                prompt: prompt,
+                index: session.index,
+                count: session.prompts.count,
+                width: width
             )
         )
-        return measuredHeight(of: probe, width: width)
+        return height.map { CGSize(width: width, height: $0) }
     }
 
     /// A laid-out card is a few hundred points tall. Anything outside that is a
@@ -400,16 +435,13 @@ final class VocabularyCardPanel: NSPanel, NSWindowDelegate {
         return height
     }
 
-    private func measuredHeight(of probe: NSView, width: CGFloat) -> CGFloat {
-        let window = NSWindow(
-            contentRect: NSRect(x: -10_000, y: -10_000, width: width, height: 2_000),
-            styleMask: [.borderless],
-            backing: .buffered,
-            defer: false
-        )
-        window.contentView = probe
-        probe.layoutSubtreeIfNeeded()
-        return probe.fittingSize.height
+    /// Asks SwiftUI for the height at this width. `fittingSize` is no use here:
+    /// it ignores the width, so text that wraps is measured as one long line and
+    /// the card cuts it off.
+    private func measuredHeight<Content: View>(of content: Content, width: CGFloat) -> CGFloat {
+        NSHostingController(rootView: content)
+            .sizeThatFits(in: CGSize(width: width, height: .greatestFiniteMagnitude))
+            .height
     }
 
     /// Width that fits every prompt, its answer, and the button, clamped to the
@@ -464,28 +496,13 @@ final class VocabularyCardPanel: NSPanel, NSWindowDelegate {
 
         learningFrame = frame
         saveLearningGeometry = true
-        let width = fittedRecallWidth(prompts: session.prompts)
         model.recall = session
         model.recallFaceVisible = true
         model.announcePrompt()
 
-        guard let prompt = session.current,
-            let height = usableHeight(
-                measuredRecallHeight(
-                    prompt: prompt,
-                    index: session.index,
-                    count: session.prompts.count,
-                    width: width
-                )
-            )
-        else {
-            return true
+        if let size = recallCardSize(for: session) {
+            setCardFrame(frameWithSize(size), animated: isVisible)
         }
-
-        setCardFrame(
-            frameWithSize(CGSize(width: width, height: height)),
-            animated: isVisible
-        )
         return true
     }
 
@@ -571,11 +588,23 @@ final class VocabularyCardPanel: NSPanel, NSWindowDelegate {
             CardGeometry.frame(
                 bySettingHeight: fittingHeight,
                 of: frame,
-                pinning: heightAnchor,
+                pinning: anchorKeepingTopOnScreen(forHeight: fittingHeight),
                 within: nil
             ),
             animated: false
         )
+    }
+
+    /// A card resting against the top of the screen grows downward, or a taller
+    /// word would push it past the menu bar. A card the user has placed partly
+    /// off screen already is left to its usual anchor.
+    private func anchorKeepingTopOnScreen(forHeight height: CGFloat) -> CardHeightAnchor {
+        guard heightAnchor == .bottom, let visible = screenVisibleFrame(),
+            frame.maxY <= visible.maxY, frame.minY + height > visible.maxY
+        else {
+            return heightAnchor
+        }
+        return .top
     }
 
     /// Records the window and the pointer where a recall press began.
@@ -774,7 +803,7 @@ final class VocabularyCardPanel: NSPanel, NSWindowDelegate {
     }
 
     /// Ends a running animation on its target frame, as if it had played out.
-    private func settleFrameAnimation() {
+    func settleFrameAnimation() {
         guard let animation = frameAnimation else {
             return
         }
@@ -824,6 +853,22 @@ final class VocabularyCardPanel: NSPanel, NSWindowDelegate {
         }
 
         moveToLowerRightCorner()
+    }
+
+    /// Brings back a card left off every screen, as when its display is
+    /// unplugged: `constrainFrameRect` below stops AppKit doing it.
+    ///
+    /// The saved position is kept, so the card returns to its place on the next
+    /// launch if the display does too.
+    func moveBackOnScreenIfNeeded() {
+        settleFrameAnimation()
+        guard !isVisible(on: frame.origin) else {
+            return
+        }
+
+        withoutPersistingGeometry {
+            moveToLowerRightCorner()
+        }
     }
 
     private func moveToLowerRightCorner() {

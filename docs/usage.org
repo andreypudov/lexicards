@@ -28,7 +28,7 @@ By default, the card fades when the pointer rests on it, and clicks pass through
 
 * Rotation
 
-The card shows a new random entry every eight seconds by default, and never repeats the entry already on screen. You can set the interval from 2 to 300 seconds in Settings. Rotation pauses during a recall session.
+The card shows a new random entry every eight seconds by default, and never repeats the entry already on screen. You can set the interval from 2 to 300 seconds in Settings. Rotation pauses during a recall session and while the card is hidden.
 
 * Recall
 
@@ -38,7 +38,7 @@ A recall session turns the card into a short test of up to ten entries, drawn at
 2. Press *Reveal* to show the answer.
 3. Press *Next* to move on. The counter at the top shows your progress.
 
-The card returns to the rotation after the last word. The card changes size when a session starts and ends, growing away from the nearest screen edges and keeping that size during the session.
+The card returns to the rotation after the last word. The card changes size when a session starts and ends, growing away from the nearest screen edges and keeping that size during the session, unless you change a font while it runs.
 
 Answers aren't scored or recorded, and entries are drawn at random rather than by what you know.
 
@@ -67,16 +67,20 @@ The speaker button on a recall card works whenever you press it, even with speec
 The Vocabulary tab in Settings lists the available vocabularies and shows the entries in the selected one.
 
 - *Built-in:* the app ships with two Genki I lists and starts on the first one.
-- *Added:* press *Add CSV…* to add your own file, and *Remove* to take it off the list. Removing doesn't delete the file.
+- *Added:* press *Add CSV…* to add your own file, and *Remove* to take it off the list.
 
-LexiCards reads your file in place rather than copying it, and reloads it from there at launch. A file with no usable rows isn't added.
+LexiCards keeps its own copy of each file you add, so the list still works if the original moves or its drive is unplugged. Your original is never changed, not even by removing the list here. A file with no usable rows isn't added.
+
+** Updating a vocabulary
+
+Changes to your original file don't reach the app by themselves. To use an updated file, press *Remove* on the old list and *Add CSV…* to choose the new one. Adding a file with the same name as an existing list also replaces that list.
 
 ** CSV format
 
 - UTF-8 text with one entry per line
 - Original in the first column, translation in the second
 - No header row, because a header would be treated as an entry
-- Blank lines and lines without a comma are ignored
+- Blank lines, lines without a comma, and lines missing either value are ignored
 - Columns after the second are ignored
 - Spaces around each value are trimmed
 

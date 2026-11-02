@@ -5,7 +5,6 @@ import os
 
 final class AppCoordinator {
     private let vocabularyController = VocabularyController()
-    private let vocabularyFileAccess = VocabularyFileAccess()
     private let vocabularyLibrary = VocabularyLibrary()
     private let vocabularySpeaker = VocabularySpeaker()
     private let vocabularyCardPanel = VocabularyCardPanel()
@@ -14,11 +13,15 @@ final class AppCoordinator {
     private lazy var settingsWindowController = SettingsWindowController(model: settingsModel)
     private var timer: Timer?
     private var recallTimer: Timer?
+    private var screenObserver: NSObjectProtocol?
     private var isPronunciationEnabled = AppSettings.shared.pronunciationEnabled
     private var isCardVisible = AppSettings.shared.cardVisible
     /// Recall Now on a hidden card shows it for that one session only. The
     /// saved visibility and the menu checkmark keep saying "hidden".
     private var isCardShownForRecall = false
+    /// What the card is playing. Not always the saved selection: see
+    /// `restoreSelectedVocabulary`.
+    private var activeSourceID: String?
 
     func start() {
         configureMenuBar()
@@ -37,14 +40,30 @@ final class AppCoordinator {
 
         startWordTimer()
         startRecallTimer()
+        observeScreenChanges()
     }
 
     func stop() {
+        if let screenObserver {
+            NotificationCenter.default.removeObserver(screenObserver)
+        }
+        screenObserver = nil
         timer?.invalidate()
         timer = nil
         recallTimer?.invalidate()
         recallTimer = nil
-        vocabularyFileAccess.stopAccessing()
+    }
+
+    private func observeScreenChanges() {
+        screenObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.didChangeScreenParametersNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.vocabularyCardPanel.moveBackOnScreenIfNeeded()
+            }
+        }
     }
 
     private func configureMenuBar() {
@@ -135,7 +154,7 @@ final class AppCoordinator {
 
     private func refreshSettingsModel() {
         settingsModel.sources = vocabularyLibrary.sources()
-        settingsModel.selectedSourceID = AppSettings.shared.selectedVocabularyIdentifier
+        settingsModel.selectedSourceID = activeSourceID
         settingsModel.entries = VocabularyEntryRow.rows(from: vocabularyController.allEntries)
         settingsModel.wordInterval = AppSettings.shared.wordInterval
         settingsModel.recallInterval = AppSettings.shared.recallInterval
@@ -145,45 +164,40 @@ final class AppCoordinator {
 
     // MARK: - Vocabulary
 
-    /// Restores the vocabulary chosen in settings, falling back to whatever file
-    /// was open last so an install that predates the library still reopens it.
+    /// Opens the vocabulary chosen in settings, or the first built-in one.
+    ///
+    /// A choice waiting on an earlier file that cannot be reached yet stays saved,
+    /// so it comes back with the file instead of being replaced for good.
     private func restoreSelectedVocabulary() -> Bool {
+        vocabularyLibrary.importLegacyBookmarks()
+
         if let identifier = AppSettings.shared.selectedVocabularyIdentifier,
             let source = vocabularyLibrary.source(withIdentifier: identifier),
-            vocabularyFileAccess.load(from: source.url, into: vocabularyController)
+            vocabularyController.load(from: source.url)
         {
-            return true
-        }
-
-        // An install predating the library, or a selection whose file has since
-        // moved. Adopt whatever was open last into the library so the settings
-        // dropdown names what is actually playing rather than a stale choice.
-        if vocabularyFileAccess.restoreLast(into: vocabularyController) {
-            if let path = AppSettings.shared.lastVocabularyPath {
-                let restored = URL(fileURLWithPath: path)
-                let adopted = vocabularyLibrary.addUserSource(at: restored)
-                AppSettings.shared.selectedVocabularyIdentifier = adopted?.id ?? path
-            }
-
+            activeSourceID = source.id
             return true
         }
 
         // First run: the app ships with vocabularies, so start on one instead of
         // showing the empty-state text until the user goes looking for settings.
         guard let firstBuiltIn = vocabularyLibrary.builtInSources().first,
-            vocabularyFileAccess.load(from: firstBuiltIn.url, into: vocabularyController)
+            vocabularyController.load(from: firstBuiltIn.url)
         else {
             AppLog.vocabulary.error("No built-in vocabulary could be loaded on first run")
             return false
         }
 
-        AppSettings.shared.selectedVocabularyIdentifier = firstBuiltIn.id
+        activeSourceID = firstBuiltIn.id
+        if !vocabularyLibrary.hasPendingLegacyBookmarks {
+            AppSettings.shared.selectedVocabularyIdentifier = firstBuiltIn.id
+        }
         return true
     }
 
     @discardableResult
     private func selectVocabulary(_ source: VocabularySource) -> Bool {
-        guard vocabularyFileAccess.load(from: source.url, into: vocabularyController) else {
+        guard vocabularyController.load(from: source.url) else {
             AppLog.vocabulary.error(
                 "Could not open vocabulary: \(source.name, privacy: .public)"
             )
@@ -195,6 +209,7 @@ final class AppCoordinator {
         }
 
         AppSettings.shared.selectedVocabularyIdentifier = source.id
+        activeSourceID = source.id
         if vocabularyCardPanel.isRecalling {
             vocabularyCardPanel.cancelRecall()
         }
@@ -206,22 +221,18 @@ final class AppCoordinator {
     /// Removing the vocabulary that is playing moves the card to another one,
     /// rather than leaving the removed words rotating.
     private func removeVocabulary(_ source: VocabularySource) {
-        guard source.kind == .user else { return }
-
-        vocabularyLibrary.removeUserSource(source)
-        // Otherwise the next launch falls back to the last-opened file and
-        // adopts the removed vocabulary into the library again.
-        if AppSettings.shared.lastVocabularyPath == source.url.path {
-            AppSettings.shared.lastVocabularyPath = nil
-            AppSettings.shared.lastVocabularyBookmark = nil
+        guard vocabularyLibrary.removeUserSource(source) else {
+            NSSound.beep()
+            return
         }
 
-        guard AppSettings.shared.selectedVocabularyIdentifier == source.id else {
+        guard activeSourceID == source.id else {
             refreshSettingsModel()
             return
         }
 
         AppSettings.shared.selectedVocabularyIdentifier = nil
+        activeSourceID = nil
         let replacement = vocabularyLibrary.sources().first { selectVocabulary($0) }
         if replacement == nil {
             if vocabularyCardPanel.isRecalling {
@@ -245,6 +256,8 @@ final class AppCoordinator {
             return
         }
 
+        // A file of the same name replaces the list, so an updated file can be
+        // added over the old one as well as after removing it.
         guard let source = vocabularyLibrary.addUserSource(at: url) else {
             AppLog.vocabulary.error(
                 "Could not add the selected vocabulary: \(url.lastPathComponent, privacy: .public)"
@@ -253,11 +266,7 @@ final class AppCoordinator {
             return
         }
 
-        // A file with no usable rows is not worth keeping in the list.
-        if !selectVocabulary(source) {
-            vocabularyLibrary.removeUserSource(source)
-            refreshSettingsModel()
-        }
+        selectVocabulary(source)
     }
 
     /// The first word of a new vocabulary appears now, and gets a full interval
@@ -282,7 +291,7 @@ final class AppCoordinator {
         let interval = AppSettings.shared.wordInterval
         let timer = Timer(timeInterval: interval, repeats: true) { [weak self] _ in
             Task { @MainActor in
-                self?.showNextWord()
+                self?.rotationTimerDidFire()
             }
         }
         timer.tolerance = interval * 0.1
@@ -333,6 +342,7 @@ final class AppCoordinator {
                 vocabularyCardPanel.orderOut(nil)
             }
             if showingCard {
+                AppLog.vocabulary.error("Recall has no entries to ask about")
                 NSSound.beep()
             }
             return
@@ -356,6 +366,16 @@ final class AppCoordinator {
 
         startWordTimer()
         startRecallTimer()
+    }
+
+    /// A hidden card rests. It comes back on the word it left, and nothing is
+    /// rebuilt and measured for a card nobody can see.
+    private func rotationTimerDidFire() {
+        guard isCardVisible else {
+            return
+        }
+
+        showNextWord()
     }
 
     private func showNextWord(inPlace: Bool = true) {
@@ -465,6 +485,11 @@ final class AppCoordinator {
         do {
             if isEnabled {
                 try SMAppService.mainApp.register()
+                // Registered, but off until the user approves it. Otherwise the
+                // switch just flips back with no explanation.
+                if SMAppService.mainApp.status == .requiresApproval {
+                    SMAppService.openSystemSettingsLoginItems()
+                }
             } else {
                 try SMAppService.mainApp.unregister()
             }

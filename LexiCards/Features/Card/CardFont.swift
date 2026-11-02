@@ -11,18 +11,18 @@ struct CardFont: Equatable {
     var weight: Font.Weight
 
     var resolved: Font {
-        guard let familyName, !familyName.isEmpty else {
+        guard let font = chosenFont else {
             return .system(size: size, weight: weight, design: .rounded)
         }
 
-        return .custom(familyName, size: size)
+        return Font(font as CTFont)
     }
 
     /// The AppKit font used to measure a line before the card is resized.
     ///
     /// A missing family is the rounded system font, matching `resolved`.
     var nsFont: NSFont {
-        if let familyName, !familyName.isEmpty, let font = NSFont(name: familyName, size: size) {
+        if let font = chosenFont {
             return font
         }
 
@@ -37,6 +37,41 @@ struct CardFont: Equatable {
     var lineHeight: CGFloat {
         let font = nsFont
         return ceil(font.ascender - font.descender + font.leading)
+    }
+
+    /// The chosen family at this line's weight, or `nil` for the system font or
+    /// a family that is no longer installed.
+    ///
+    /// Selected through the font manager, because a family name passed to
+    /// `NSFont(name:)` or `Font.custom` picks a face regardless of weight: for
+    /// Hiragino Sans that is W0, its thinnest.
+    private var chosenFont: NSFont? {
+        guard let familyName, !familyName.isEmpty else {
+            return nil
+        }
+
+        return NSFontManager.shared.font(
+            withFamily: familyName,
+            traits: [],
+            weight: fontManagerWeight,
+            size: size
+        )
+    }
+
+    /// `NSFontManager`'s 0–15 scale, on which 5 is regular and 9 is bold.
+    private var fontManagerWeight: Int {
+        switch weight {
+        case .ultraLight: 2
+        case .thin: 3
+        case .light: 4
+        case .regular: 5
+        case .medium: 6
+        case .semibold: 8
+        case .bold: 9
+        case .heavy: 11
+        case .black: 13
+        default: 5
+        }
     }
 
     private var nsWeight: NSFont.Weight {

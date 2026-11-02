@@ -8,10 +8,6 @@ import SwiftUI
 /// scene's window cannot be summoned reliably from a status-item menu. An
 /// ordinary window managed here behaves predictably instead.
 final class SettingsWindowController: NSObject, NSWindowDelegate {
-    /// AppKit persists the frame under this name, so the window comes back where
-    /// it was left — across openings and across launches.
-    private static let frameAutosaveName = NSWindow.FrameAutosaveName("LexiCardsSettingsWindow")
-
     private let model: SettingsModel
     private(set) var window: NSWindow?
 
@@ -34,7 +30,21 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     /// and selected tab are all state the user set, and throwing it away is what
     /// made settings reopen somewhere else every time.
     func windowWillClose(_: Notification) {
-        window?.saveFrame(usingName: Self.frameAutosaveName)
+        saveFrame()
+    }
+
+    func windowDidMove(_: Notification) {
+        saveFrame()
+    }
+
+    func windowDidResize(_: Notification) {
+        saveFrame()
+    }
+
+    private func saveFrame() {
+        if let window {
+            AppSettings.shared.settingsWindowFrame = window.frame
+        }
     }
 
     private static let defaultContentSize = NSSize(width: 620, height: 460)
@@ -58,12 +68,24 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         window.delegate = self
         window.setContentSize(Self.defaultContentSize)
 
-        // Centre only when there is nothing remembered; otherwise restore.
-        if !window.setFrameUsingName(Self.frameAutosaveName) {
-            window.center()
-        }
-        window.setFrameAutosaveName(Self.frameAutosaveName)
+        restoreFrame(of: window)
 
         return window
+    }
+
+    /// Puts the window back where it was left, across openings and launches, or
+    /// centres it when that place is gone.
+    ///
+    /// AppKit's frame autosave is not used: with several displays,
+    /// `setFrameUsingName` moves a frame saved on one display onto another.
+    private func restoreFrame(of window: NSWindow) {
+        guard let saved = AppSettings.shared.settingsWindowFrame,
+            NSScreen.screens.contains(where: { $0.visibleFrame.intersects(saved) })
+        else {
+            window.center()
+            return
+        }
+
+        window.setFrame(saved, display: false)
     }
 }

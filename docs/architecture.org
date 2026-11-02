@@ -72,8 +72,7 @@ docs/                   This documentation
 
 | Type                   | Responsibility                                                        |
 |------------------------+-----------------------------------------------------------------------|
-| =VocabularyLibrary=    | Lists what is available: bundled CSV files plus the user's bookmarks  |
-| =VocabularyFileAccess= | Opens files, including security-scoped access and bookmark restoration |
+| =VocabularyLibrary=    | Lists bundled CSV files and the app's copies, and adds and removes copies |
 | =VocabularyLoader=     | Parses CSV text into entries                                          |
 | =VocabularyController= | Holds the loaded entries and chooses the next random one              |
 | =VocabularySpeaker=    | Detects languages, chooses voices, and speaks through =AVSpeechSynthesizer= |
@@ -94,7 +93,7 @@ docs/                   This documentation
 
 1. =AppDelegate= calls =AppCoordinator.start()=.
 2. The coordinator connects the menu and settings callbacks, and restores the card's position.
-3. It restores a vocabulary, trying in order: the selected source, the last-opened file, and the first built-in list.
+3. It copies in any files earlier versions only bookmarked, then opens the selected vocabulary or else the first built-in list.
 4. It shows the card if it was visible, and starts both timers.
 
 ** Rotation
@@ -122,7 +121,7 @@ The card is an =NSPanel= with a titled style mask rather than a borderless one, 
 This has three consequences, which the panel handles:
 
 - The title bar view is hidden so that it can't sit on top of the card's top row. It is reached through the close button's parent views, which is undocumented structure, and =theTitleBarLeavesTheCloseButtonReachable= tests the result.
-- The bar's reserved safe area is ignored. =NSHostingView.fittingSize= still includes it, so height is measured with separate probe views.
+- The bar's reserved safe area is ignored. Height is measured separately with =NSHostingController.sizeThatFits(in:)=, which respects the card's width. =NSHostingView.fittingSize= is not used: it includes the safe area and ignores the width, so wrapped text would be cut off.
 - =constrainFrameRect= is overridden, because titled windows are otherwise kept below the menu bar.
 
 ** The HUD material rather than Liquid Glass
@@ -141,9 +140,13 @@ The window animates with its own timer rather than the AppKit window animator, w
 
 The reading and recall faces share one window and crossfade. The recall face stays in the tree until the window has shrunk (=displayedRecall=), so that removing it doesn't collapse the window mid-animation.
 
-** Bookmarks for user files
+** Copies of user files
 
-The app sandbox only grants read access to files the user selects, so reaching them again after a relaunch takes security-scoped bookmarks. =VocabularyLibrary= stores one per added file.
+Added vocabularies are copied to =Application Support/LexiCards/Vocabularies= in the app's container, rather than read in place through security-scoped bookmarks. The app's own files stay readable after an original moves or its drive is unplugged. The cost is that changes to the original don't reach the app until it is added again.
+
+A copy's identifier comes from its name, so adding a file of the same name replaces it.
+
+Earlier versions kept bookmarks. =importLegacyBookmarks= copies those files in at launch, and keeps any bookmark it can't reach yet for the next launch. While one is pending, a selection falling back to a built-in list isn't saved, so the original choice returns with the file.
 
 * Testing
 

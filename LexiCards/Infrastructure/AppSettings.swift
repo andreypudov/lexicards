@@ -39,6 +39,7 @@ final class AppSettings {
         static let voiceIdentifier = "voiceIdentifier"
         static let userVocabularyBookmarks = "userVocabularyBookmarks"
         static let selectedVocabularyIdentifier = "selectedVocabularyIdentifier"
+        static let settingsWindowFrame = "settingsWindowFrame"
     }
 
     private enum Defaults {
@@ -157,6 +158,8 @@ final class AppSettings {
         }
     }
 
+    /// From earlier versions, kept only until `VocabularyLibrary` has copied the
+    /// file in.
     var lastVocabularyBookmark: Data? {
         get {
             defaults.data(forKey: Keys.lastVocabularyBookmark)
@@ -225,8 +228,8 @@ final class AppSettings {
         set { defaults.set(newValue, forKey: Keys.voiceIdentifier) }
     }
 
-    /// Security-scoped bookmarks for every CSV the user has added, so the
-    /// settings list survives relaunches and sandbox restrictions.
+    /// Files earlier versions kept bookmarks to and the library could not reach
+    /// yet. New vocabularies are copied in and need none.
     var userVocabularyBookmarks: [Data] {
         get { defaults.array(forKey: Keys.userVocabularyBookmarks) as? [Data] ?? [] }
         set { defaults.set(newValue, forKey: Keys.userVocabularyBookmarks) }
@@ -235,6 +238,12 @@ final class AppSettings {
     var selectedVocabularyIdentifier: String? {
         get { defaults.string(forKey: Keys.selectedVocabularyIdentifier) }
         set { defaults.set(newValue, forKey: Keys.selectedVocabularyIdentifier) }
+    }
+
+    /// Where the settings window was left, in screen coordinates.
+    var settingsWindowFrame: CGRect? {
+        get { defaults.string(forKey: Keys.settingsWindowFrame).map(NSRectFromString) }
+        set { defaults.set(newValue.map(NSStringFromRect), forKey: Keys.settingsWindowFrame) }
     }
 
     var cardWindowOrigin: CGPoint? {

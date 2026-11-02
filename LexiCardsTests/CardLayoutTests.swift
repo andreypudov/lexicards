@@ -59,6 +59,117 @@ struct CardLayoutTests {
         }
     }
 
+    /// Text that wraps needs the room for its second line, which is cut off if
+    /// the card is measured as though the text ran on in one long line.
+    @Test
+    func aNarrowerCardIsTallerWhenItsTextWraps() {
+        withIsolatedSettings {
+            let panel = VocabularyCardPanel()
+            let entry = VocabularyEntry(
+                original: "a considerably longer word that has to wrap onto two lines of the card",
+                translation: "a considerably longer translation that has to wrap onto two lines too"
+            )
+            panel.update(entry: entry)
+            let narrow = panel.frame
+            #expect(narrow.width == 320)
+
+            panel.resizeWidth(by: 480, from: narrow, pinning: .trailing)
+
+            #expect(panel.frame.width == 800)
+            #expect(panel.frame.height < narrow.height)
+        }
+    }
+
+    /// The bottom edge normally stays put, but not at the cost of pushing the
+    /// top of the card off the screen.
+    @Test
+    func aTallerEntryAtTheTopOfTheScreenGrowsDownward() {
+        withIsolatedSettings {
+            guard let visible = NSScreen.main?.visibleFrame else {
+                Issue.record("no screen")
+                return
+            }
+
+            let panel = VocabularyCardPanel()
+            panel.update(entry: VocabularyEntry(original: "猫", translation: "cat"))
+            panel.setFrameOrigin(
+                NSPoint(x: visible.minX + 40, y: visible.maxY - panel.frame.height - 2)
+            )
+            let short = panel.frame
+
+            panel.update(
+                entry: VocabularyEntry(
+                    original: "とてもながいことばがここにありますとてもながいことばがここにあります",
+                    translation: "a considerably longer translation that should wrap onto two lines"
+                )
+            )
+
+            #expect(panel.frame.height > short.height)
+            #expect(panel.frame.maxY <= visible.maxY)
+        }
+    }
+
+    /// Unplugging a display can strand the card, whose position AppKit does not
+    /// constrain. Bringing it back must not forget where the user had put it:
+    /// the display may well come back.
+    @Test
+    func aCardLeftOffEveryScreenComesBackWithoutForgettingItsPlace() {
+        withIsolatedSettings {
+            let panel = VocabularyCardPanel()
+            let stranded = NSPoint(x: 90_000, y: 90_000)
+            panel.setFrameOrigin(stranded)
+            #expect(AppSettings.shared.cardWindowOrigin == stranded)
+
+            panel.moveBackOnScreenIfNeeded()
+
+            #expect(NSScreen.screens.contains { $0.visibleFrame.intersects(panel.frame) })
+            #expect(AppSettings.shared.cardWindowOrigin == stranded)
+        }
+    }
+
+    @Test
+    func aCardOnScreenStaysWhereItIsWhenDisplaysChange() {
+        withIsolatedSettings {
+            guard let visible = NSScreen.main?.visibleFrame else {
+                Issue.record("no screen")
+                return
+            }
+
+            let panel = VocabularyCardPanel()
+            let origin = NSPoint(x: visible.minX + 40, y: visible.minY + 40)
+            panel.setFrameOrigin(origin)
+
+            panel.moveBackOnScreenIfNeeded()
+
+            #expect(panel.frame.origin == origin)
+        }
+    }
+
+    /// A chosen family has to keep the line's weight. Taken by name alone,
+    /// Hiragino Sans is its thinnest face, W0, for the word as well.
+    @Test
+    func aChosenFontFamilyKeepsTheWeightOfItsLine() throws {
+        let family = "Hiragino Sans"
+        try #require(NSFontManager.shared.availableFontFamilies.contains(family))
+
+        let word = CardFont(familyName: family, size: 21, weight: .semibold).nsFont
+        let translation = CardFont(familyName: family, size: 16, weight: .regular).nsFont
+
+        #expect(word.familyName == family)
+        #expect(translation.familyName == family)
+        #expect(word.fontName != "HiraginoSans-W0")
+        #expect(translation.fontName != "HiraginoSans-W0")
+        #expect(word.fontName != translation.fontName)
+    }
+
+    @Test
+    func aFontFamilyThatIsNoLongerInstalledFallsBackToTheSystemFont() {
+        let font = CardFont(familyName: "No Such Family", size: 21, weight: .semibold).nsFont
+
+        #expect(font.pointSize == 21)
+        #expect(font.familyName != "No Such Family")
+    }
+
     @Test
     func aTallerEntryMakesATallerCard() {
         withIsolatedSettings {
@@ -77,40 +188,44 @@ struct CardLayoutTests {
         }
     }
 
-    /// Recall measures the next reading card beside the live one, so the window
-    /// can take the new height without waiting on the view that is still on
-    /// screen. That measurement has to agree with the height the card itself
-    /// settles on.
+    /// The height the card takes has to be the height its text needs at the
+    /// card's width. Text layout is the reference rather than a SwiftUI view:
+    /// `fittingSize` measures text as one long line whatever the width, so
+    /// comparing against it would agree with a card that cuts the text off.
     @Test
-    func anOffscreenMeasurementMatchesTheLaidOutCard() {
+    func theCardIsAsTallAsItsWrappedTextNeeds() {
         withIsolatedSettings {
             let panel = VocabularyCardPanel()
             let entry = VocabularyEntry(
-                original: "とてもながいことばがここにあります",
+                original: "a longer word that has to wrap onto two lines of it",
                 translation: "a considerably longer translation that should wrap onto two lines"
             )
             panel.update(entry: entry)
 
-            let probe = NSHostingView(
-                rootView: VocabularyCardView(
-                    entry: entry,
-                    emptyText: AppSettings.shared.emptyVocabularyText,
-                    wordFont: .word(from: AppSettings.shared),
-                    translationFont: .translation(from: AppSettings.shared)
-                )
-            )
-            let window = NSWindow(
-                contentRect: NSRect(
-                    x: -10_000, y: -10_000, width: panel.frame.width, height: 2_000),
-                styleMask: [.borderless],
-                backing: .buffered,
-                defer: false
-            )
-            window.contentView = probe
-            probe.layoutSubtreeIfNeeded()
+            let textWidth = panel.frame.width - CardFace.inset * 2
+            let word = height(of: entry.original, font: .word(from: AppSettings.shared), textWidth)
+            let translation = height(
+                of: entry.translation, font: .translation(from: AppSettings.shared), textWidth)
+            let lineSpacing: CGFloat = 8
+            // SwiftUI's line boxes run a little taller than text layout's. A card that
+            // cuts off the second lines is some 40 points short.
 
-            #expect(abs(probe.fittingSize.height - panel.frame.height) < 1)
+            #expect(word > CardFont.word(from: AppSettings.shared).lineHeight)
+            #expect(
+                abs(panel.frame.height - (CardFace.inset * 2 + lineSpacing + word + translation))
+                    < 6
+            )
         }
+    }
+
+    private func height(of text: String, font: CardFont, _ width: CGFloat) -> CGFloat {
+        ceil(
+            (text as NSString).boundingRect(
+                with: CGSize(width: width, height: .greatestFiniteMagnitude),
+                options: [.usesLineFragmentOrigin, .usesFontLeading],
+                attributes: [.font: font.nsFont]
+            ).height
+        )
     }
 
     @Test

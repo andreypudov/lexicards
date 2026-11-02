@@ -26,6 +26,34 @@ struct VocabularyTests {
             ])
     }
 
+    /// A row with one side missing would be a blank card, and a recall card
+    /// with nothing to ask or nothing to reveal.
+    @Test
+    func loaderSkipsRowsMissingEitherValue() throws {
+        let url = try makeTemporaryVocabularyFile(
+            contents: """
+                猫,cat
+                犬,
+                ,dog
+                ,
+                 ,\u{20}
+                """
+        )
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        #expect(
+            VocabularyLoader.load(from: url) == [VocabularyEntry(original: "猫", translation: "cat")]
+        )
+    }
+
+    @Test
+    func aFileOfOnlyEmptyValuesHasNoUsableRows() throws {
+        let url = try makeTemporaryVocabularyFile(contents: ",\n,,\n")
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        #expect(VocabularyController().load(from: url) == false)
+    }
+
     @Test
     func loaderTreatsHeaderAsDataUntilHeaderSupportIsAdded() throws {
         let url = try makeTemporaryVocabularyFile(

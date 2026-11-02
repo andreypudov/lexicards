@@ -19,6 +19,9 @@ enum VocabularyLoader {
 
         let original = columns[0].trimmingCharacters(in: .whitespaces)
         let translation = columns[1].trimmingCharacters(in: .whitespaces)
+        // One side missing would be a blank card, or a recall with nothing to
+        // ask or to reveal.
+        guard !original.isEmpty, !translation.isEmpty else { return nil }
 
         return VocabularyEntry(original: original, translation: translation)
     }
