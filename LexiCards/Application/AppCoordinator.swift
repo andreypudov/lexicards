@@ -94,6 +94,9 @@ final class AppCoordinator {
         settingsModel.onRecallIntervalChanged = { [weak self] in
             self?.startRecallTimer()
         }
+        settingsModel.onCardFadeChanged = { [weak self] in
+            self?.vocabularyCardPanel.fadesOnHover = AppSettings.shared.cardFadesOnHover
+        }
         settingsModel.onPronunciationChanged = { [weak self] in
             self?.pronunciationSettingsDidChange()
         }

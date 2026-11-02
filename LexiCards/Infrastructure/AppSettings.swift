@@ -20,6 +20,7 @@ final class AppSettings {
         static let pronounceDuringRotation = "pronounceDuringRotation"
         static let pronounceDuringRecall = "pronounceDuringRecall"
         static let pronounceTranslation = "pronounceTranslation"
+        static let cardFadesOnHover = "cardFadesOnHover"
         static let emptyVocabularyText = "emptyVocabularyText"
         static let defaultLanguageCode = "defaultLanguageCode"
         static let lastVocabularyBookmark = "lastVocabularyBookmark"
@@ -50,6 +51,7 @@ final class AppSettings {
         static let pronounceDuringRotation = true
         static let pronounceDuringRecall = true
         static let pronounceTranslation = false
+        static let cardFadesOnHover = true
     }
 
     var wordInterval: TimeInterval {
@@ -101,6 +103,13 @@ final class AppSettings {
     var pronounceTranslation: Bool {
         get { bool(forKey: Keys.pronounceTranslation, default: Defaults.pronounceTranslation) }
         set { defaults.set(newValue, forKey: Keys.pronounceTranslation) }
+    }
+
+    /// Whether the card fades and lets clicks through while the pointer rests
+    /// on it. Option brings it back.
+    var cardFadesOnHover: Bool {
+        get { bool(forKey: Keys.cardFadesOnHover, default: Defaults.cardFadesOnHover) }
+        set { defaults.set(newValue, forKey: Keys.cardFadesOnHover) }
     }
 
     private func bool(forKey key: String, default fallback: Bool) -> Bool {

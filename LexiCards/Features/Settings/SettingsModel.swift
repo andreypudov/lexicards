@@ -22,6 +22,7 @@ final class SettingsModel: ObservableObject {
     @Published var pronounceDuringRotation: Bool
     @Published var pronounceDuringRecall: Bool
     @Published var pronounceTranslation: Bool
+    @Published var cardFadesOnHover: Bool
     @Published var wordInterval: TimeInterval
     @Published var recallInterval: TimeInterval
     @Published var launchAtLogin: Bool
@@ -32,6 +33,7 @@ final class SettingsModel: ObservableObject {
     var onFontsChanged: (() -> Void)?
     var onVoiceChanged: (() -> Void)?
     var onPronunciationChanged: (() -> Void)?
+    var onCardFadeChanged: (() -> Void)?
     var onIntervalChanged: (() -> Void)?
     var onRecallIntervalChanged: (() -> Void)?
     var onPreviewVoice: (() -> Void)?
@@ -47,6 +49,7 @@ final class SettingsModel: ObservableObject {
         pronounceDuringRotation = settings.pronounceDuringRotation
         pronounceDuringRecall = settings.pronounceDuringRecall
         pronounceTranslation = settings.pronounceTranslation
+        cardFadesOnHover = settings.cardFadesOnHover
         wordInterval = settings.wordInterval
         recallInterval = settings.recallInterval
         launchAtLogin = false
@@ -103,6 +106,11 @@ final class SettingsModel: ObservableObject {
         settings.pronounceTranslation = pronounceTranslation
 
         notifySoon(onPronunciationChanged)
+    }
+
+    func commitCardFade() {
+        AppSettings.shared.cardFadesOnHover = cardFadesOnHover
+        notifySoon(onCardFadeChanged)
     }
 
     func commitInterval() {

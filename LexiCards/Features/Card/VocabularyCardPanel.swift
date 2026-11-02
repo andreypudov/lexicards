@@ -148,6 +148,12 @@ final class MovableHostingView: NSHostingView<FloatingCardView> {
         isShowingResizeCursor = true
     }
 
+    /// A card that starts ignoring the mouse never sees the pointer leave, so
+    /// the resize cursor it pushed has to be dropped by hand.
+    func resetResizeCursor() {
+        hideResizeCursor()
+    }
+
     private func hideResizeCursor() {
         guard isShowingResizeCursor else {
             return
@@ -184,6 +190,18 @@ final class VocabularyCardPanel: NSPanel, NSWindowDelegate {
     private var cardDragPointer: NSPoint?
     private var frameAnimation: FrameAnimation?
     private var frameAnimationID = 0
+    private var hoverFade = CardHoverFade()
+    private var hoverTimer: Timer?
+    /// The opacity to return to, held only while the card is faded or still
+    /// coming back from it.
+    private var solidAlpha: CGFloat?
+
+    /// Fade the card and let clicks through while the pointer rests on it.
+    var fadesOnHover = AppSettings.shared.cardFadesOnHover {
+        didSet {
+            updateHoverFade()
+        }
+    }
 
     private struct FrameAnimation {
         let timer: Timer
@@ -842,6 +860,102 @@ final class VocabularyCardPanel: NSPanel, NSWindowDelegate {
         }
 
         lastFrame.size = frame.size
+    }
+
+    // MARK: - Fading under the pointer
+
+    override func orderFrontRegardless() {
+        super.orderFrontRegardless()
+        startHoverTracking()
+    }
+
+    override func orderOut(_ sender: Any?) {
+        stopHoverTracking()
+        super.orderOut(sender)
+    }
+
+    /// A window that ignores the mouse gets no tracking events either, so the
+    /// pointer and the Option key are sampled instead. Neither needs
+    /// Accessibility permission. The timer only runs while the card is shown.
+    private func startHoverTracking() {
+        guard hoverTimer == nil else {
+            return
+        }
+
+        let timer = Timer(timeInterval: 1.0 / 30.0, repeats: true) { [weak self] timer in
+            guard let self else {
+                timer.invalidate()
+                return
+            }
+
+            MainActor.assumeIsolated {
+                self.updateHoverFade()
+            }
+        }
+        timer.tolerance = 1.0 / 120.0
+        RunLoop.main.add(timer, forMode: .common)
+        hoverTimer = timer
+    }
+
+    private func stopHoverTracking() {
+        hoverTimer?.invalidate()
+        hoverTimer = nil
+        hoverFade.reset()
+        ignoresMouseEvents = false
+        if let solidAlpha {
+            alphaValue = solidAlpha
+        }
+        solidAlpha = nil
+    }
+
+    private func updateHoverFade() {
+        guard isVisible else {
+            return
+        }
+
+        let pointerArea =
+            hoverFade.isFaded
+            ? frame.insetBy(dx: -CardHoverFade.exitMargin, dy: -CardHoverFade.exitMargin)
+            : frame
+        let wasFaded = hoverFade.isFaded
+        let faded = hoverFade.update(
+            pointerInside: pointerArea.contains(NSEvent.mouseLocation),
+            optionHeld: NSEvent.modifierFlags.contains(.option),
+            buttonPressed: NSEvent.pressedMouseButtons != 0,
+            isEnabled: fadesOnHover,
+            isRecalling: isRecalling,
+            now: Date()
+        )
+
+        if faded, !wasFaded {
+            solidAlpha = solidAlpha ?? alphaValue
+            hostingView.resetResizeCursor()
+        }
+        if ignoresMouseEvents != faded {
+            ignoresMouseEvents = faded
+        }
+        stepAlpha(towardFaded: faded)
+    }
+
+    /// Eases the opacity a step per sample. AppKit's window animator drops
+    /// frames while another app is active, which is when this runs.
+    private func stepAlpha(towardFaded faded: Bool) {
+        guard let solid = solidAlpha else {
+            return
+        }
+
+        let target = faded ? solid * CardHoverFade.fadedOpacity : solid
+        let step = max(solid, 0.01) / 5
+        let next =
+            alphaValue < target
+            ? min(target, alphaValue + step)
+            : max(target, alphaValue - step)
+        if abs(next - alphaValue) > 0.0001 {
+            alphaValue = next
+        }
+        if !faded, abs(next - solid) < 0.0001 {
+            solidAlpha = nil
+        }
     }
 
     override var canBecomeKey: Bool {

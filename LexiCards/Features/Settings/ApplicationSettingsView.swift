@@ -26,6 +26,24 @@ struct ApplicationSettingsView: View {
                     family: $model.translationFontName,
                     size: $model.translationFontSize
                 )
+
+                Toggle(
+                    "Fade when the pointer rests on the card",
+                    isOn: Binding(
+                        get: { model.cardFadesOnHover },
+                        set: {
+                            model.cardFadesOnHover = $0
+                            model.commitCardFade()
+                        }
+                    )
+                )
+
+                Text(
+                    "Clicks go through to whatever is underneath. Hold ⌥ Option to bring the "
+                        + "card back to move, resize, or click it. A recall card does not fade."
+                )
+                .font(.caption)
+                .foregroundStyle(.secondary)
             }
 
             Section("Rotation") {
